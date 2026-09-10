@@ -77,6 +77,27 @@ jobs:
             -only-testing:TransportModuleUITests \
             CODE_SIGNING_ALLOWED=NO ENABLE_TESTABILITY=YES \
             2>&1 | tee "$RUNNER_TEMP/transport-xcodebuild.log" | xcbeautify
+      - name: Relink library source for submodule-style verification
+        working-directory: example-transport
+        run: |
+          npm install --install-links=false --no-save --package-lock=false expo-cloudkit@file:..
+          node -e "const fs=require('fs'); if(!fs.lstatSync('node_modules/expo-cloudkit').isSymbolicLink() || fs.realpathSync('node_modules/expo-cloudkit')!==fs.realpathSync('..')) throw Error('Expected direct library-source link')"
+          npx expo-modules-autolinking resolve --platform apple
+      - name: Compile source-linked module and repeat real module loading
+        working-directory: example-transport/ios
+        run: |
+          set -o pipefail
+          pod install
+          SCHEME=$(cat transport-scheme.txt)
+          xcodebuild test \
+            -workspace "$SCHEME.xcworkspace" \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -destination 'platform=iOS Simulator,name=iPhone 17,OS=26.4.1' \
+            -resultBundlePath "$RUNNER_TEMP/TransportSource.xcresult" \
+            -only-testing:TransportModuleUITests \
+            CODE_SIGNING_ALLOWED=NO ENABLE_TESTABILITY=YES \
+            2>&1 | tee "$RUNNER_TEMP/transport-source-xcodebuild.log" | xcbeautify
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -84,5 +105,7 @@ jobs:
           path: |
             ${{ runner.temp }}/Transport.xcresult
             ${{ runner.temp }}/transport-xcodebuild.log
+            ${{ runner.temp }}/TransportSource.xcresult
+            ${{ runner.temp }}/transport-source-xcodebuild.log
             ${{ runner.temp }}/expo-cloudkit-0.21.0-fork.0.tgz
           if-no-files-found: warn

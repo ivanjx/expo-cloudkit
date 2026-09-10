@@ -226,6 +226,8 @@ Expo's online `expo install --check` currently recommends newer rolling SDK57/RN
 
 GitHub workflow `.github/workflows/transport.yml` is invoked by ordinary CI and by the feature branch. It installs the tarball into the exact example, runs all JS tests, autolinking/prebuild/CocoaPods, the native XCTest suite and a Release-app UI smoke which calls real module create/validation/dispose methods. It uses a standard public macOS runner, no signing secrets, paid build or publication. Raw Xcode logs/results and the tarball are uploaded as evidence. Consult the actual run conclusion; adding the workflow alone is not a passed gate.
 
+It then replaces the tarball with a verified direct `file:..` source link, reruns Apple autolinking/CocoaPods, rebuilds, and repeats the real native module UI smoke. This exercises the source-in-workspace layout used by a submodule checkout without introducing a submodule into this library repository.
+
 ## Required signed-device gates (not production-ready)
 
 Use the lab's generated `TransportVerification-...` zones, a disposable app/container and two clients on the same iCloud account. Never delete an existing dataset. Capture generation, identity, correlation IDs, record change tags/system fields, errors and checkpoint decisions. The detailed button-by-button procedure is in the example README.

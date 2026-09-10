@@ -14,6 +14,8 @@ def add_test_target(project, app, name, type, files)
   target.add_dependency(app)
   target.build_configurations.each do |config|
     config.build_settings['SWIFT_VERSION'] = '5.0'
+    # Expo 57's generated provider imports modules internally; match that test-only default.
+    config.build_settings['OTHER_SWIFT_FLAGS'] = '$(inherited) -enable-upcoming-feature InternalImportsByDefault'
     config.build_settings['GENERATE_INFOPLIST_FILE'] = 'YES'
     config.build_settings['PRODUCT_NAME'] = name
     config.build_settings['PRODUCT_MODULE_NAME'] = name
