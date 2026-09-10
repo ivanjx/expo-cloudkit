@@ -13,7 +13,7 @@ const containerId = String(Constants.expoConfig?.extra?.cloudKitContainerId ?? '
 const unique = () => `${Date.now()}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
 const freshZone = () => `TransportVerification-${unique()}`;
 const notebookDirectory = new Directory(Paths.document, 'transport-verification');
-const metadataKeys = ['title', 'revision', 'assetLabel'];
+const metadataKeys = ['title', 'revision', 'assetLabel', 'assetDigest'];
 let lastSnapshotTime = Date.now();
 
 type Notebook = {
@@ -27,7 +27,7 @@ type Notebook = {
   token?: string;
   committedPage?: TransportFetchChangesResult;
   downloads?: { uri: string; byteCount: number; owner: TransportRecord }[];
-  uploadUri?: string;
+  uploads?: { uri: string; byteCount: number; md5: string; assetLabel: string; owner?: TransportRecord }[];
 };
 
 function restore(): Notebook {
@@ -168,21 +168,33 @@ function TransportLab() {
   }
   const save = (label: string, records: TransportWrite[]) => run(label, requireSession().saveRecords({ records }), (value) => {
     const saved = value.outcomes.find((outcome) => outcome.status === 'saved' && outcome.id.recordName === 'verification-record');
-    if (saved?.status === 'saved') update({ record: saved.record });
+    if (saved?.status === 'saved') {
+      const label = saved.record.fields.assetLabel;
+      update({ record: saved.record, uploads: book.current.uploads?.map((upload) =>
+        !upload.owner && label?.type === 'string' && upload.assetLabel === label.value
+          ? { ...upload, owner: saved.record } : upload) }, true);
+    }
   });
   const draft = (set: TransportWrite['set'], clear: string[] = []): TransportWrite => {
     if (!book.current.record) throw new Error('Fetch the existing metadata version before preparing an update.');
     return { ...recordID(), recordType: 'TransportProbe', systemFields: book.current.record.systemFields,
       set, clear, correlationId: unique() };
   };
-  const asset = () => {
+  const asset = (): TransportWrite['set'] => {
     const size = Number(assetMiB);
     if (!Number.isInteger(size) || size < 1 || size > 32) throw new Error('Asset size must be 1–32 MiB.');
     const file = new File(notebookDirectory, `upload-${unique()}.txt`);
     file.create();
     file.write(`Transport asset ${unique()}\n${'x'.repeat(size * 1024 * 1024)}`);
-    update({ uploadUri: file.uri }, true);
-    return file.uri;
+    const md5 = file.md5;
+    if (!md5) throw new Error('Unable to checksum the generated upload.');
+    const assetLabel = unique();
+    update({ uploads: [...(book.current.uploads ?? []), { uri: file.uri, byteCount: file.size, md5, assetLabel }] }, true);
+    return {
+      attachment: { type: 'asset', value: file.uri },
+      assetLabel: { type: 'string', value: assetLabel },
+      assetDigest: { type: 'string', value: md5 },
+    };
   };
   const fetchMetadata = () => run('Targeted metadata + missing lookup', requireSession().fetchRecords({
     records: [recordID(), { ...zone(), recordName: `missing-${unique()}` }], desiredKeys: metadataKeys,
@@ -248,7 +260,7 @@ function TransportLab() {
     {button('Create stable record + local upload (repeat must conflict)', () => save('Create with asset', [{
       ...recordID(), recordType: 'TransportProbe', correlationId: unique(), clear: [],
       set: { title: { type: 'string', value: title }, revision: { type: 'number', value: 1 },
-        assetLabel: { type: 'string', value: unique() }, attachment: { type: 'asset', value: asset() } },
+        ...asset() },
     }]))}
     {button('Fetch metadata only + missing record', fetchMetadata)}
     {button('Prepare metadata-only draft and persist mask + system fields', () => {
@@ -277,9 +289,7 @@ function TransportLab() {
       return save('Mixed batch', [{ ...recordID(), recordName: `mixed-${unique()}`, recordType: 'TransportProbe',
         set: { title: { type: 'string', value: title } }, clear: [], correlationId: unique() }, book.current.clientB]);
     })}
-    {button('Replace asset + metadata together', () => save('Replace asset', [draft({
-      attachment: { type: 'asset', value: asset() }, assetLabel: { type: 'string', value: unique() },
-    })]))}
+    {button('Replace asset + metadata together', () => save('Replace asset', [draft(asset())]))}
     {button('Explicitly clear asset', () => save('Clear asset', [draft({}, ['attachment'])]))}
     {button('Persist current observed record system fields', () => { persist(book.current); report('Notebook persisted.'); })}
     <Text style={styles.heading}>Changes and caller checkpoint</Text>
@@ -296,16 +306,25 @@ function TransportLab() {
     <TextInput style={styles.input} value={cancelDelay} onChangeText={setCancelDelay} keyboardType="number-pad" accessibilityLabel="Cancellation delay milliseconds" />
     {button('Download asset and persist owner/version + URI', () => download())}
     {button('Download with delayed cancellation', () => download(true))}
-    {button('Verify persisted downloads and upload still readable', async () => {
+    {button('Verify persisted downloads and uploads by content digest', () => {
+      if (!book.current.downloads?.length) throw new Error('Download an asset before running the content-verification gate.');
       for (const item of book.current.downloads ?? []) {
         const file = new File(item.uri);
-        const bytes = await file.bytes();
-        report('Durable asset read', { uri: item.uri, expectedBytes: item.byteCount, actualBytes: bytes.length,
-          matches: bytes.length === item.byteCount, owner: item.owner });
+        const declared = item.owner.fields.assetDigest;
+        const label = item.owner.fields.assetLabel;
+        const source = book.current.uploads?.find((upload) => label?.type === 'string' && upload.assetLabel === label.value);
+        const expected = source?.md5 ?? (declared?.type === 'string' ? declared.value : undefined);
+        const actual = file.md5;
+        const matches = !!expected && actual === expected && file.size === item.byteCount;
+        report('Durable asset content verification', { uri: item.uri, expectedDigest: expected, actualDigest: actual,
+          matches, owner: item.owner, sourceOwner: source?.owner });
+        if (!matches) throw new Error('Asset digest/size mismatch or missing expected digest; gate FAILED.');
       }
-      if (book.current.uploadUri) {
-        const file = new File(book.current.uploadUri);
-        report('Caller upload source', { uri: file.uri, exists: file.exists, bytes: file.size });
+      for (const upload of book.current.uploads ?? []) {
+        const file = new File(upload.uri);
+        const matches = file.exists && file.md5 === upload.md5 && file.size === upload.byteCount;
+        report('Caller upload source retained', { uri: file.uri, matches, owner: upload.owner });
+        if (!matches) throw new Error('Caller upload source missing or changed; gate FAILED.');
       }
     })}
     {button('Cancel before native submission', () => {

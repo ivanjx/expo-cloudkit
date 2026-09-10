@@ -9,10 +9,14 @@ app = project.targets.find { |target| target.product_type == 'com.apple.product-
 
 def add_test_target(project, app, name, type, files)
   target = project.new_target(type, name, :ios, '16.4')
+  target.product_name = name
+  target.product_reference.path = "#{name}.xctest"
   target.add_dependency(app)
   target.build_configurations.each do |config|
     config.build_settings['SWIFT_VERSION'] = '5.0'
     config.build_settings['GENERATE_INFOPLIST_FILE'] = 'YES'
+    config.build_settings['PRODUCT_NAME'] = name
+    config.build_settings['PRODUCT_MODULE_NAME'] = name
     config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = "com.example.cloudkittransport.#{name}"
     config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
     if type == :unit_test_bundle
