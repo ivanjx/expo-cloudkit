@@ -232,6 +232,8 @@ Simulator CI enables local ad-hoc signing (`CODE_SIGN_IDENTITY=-`) so the plugin
 
 It then replaces the tarball with a verified direct `file:..` source link, reruns Apple autolinking/CocoaPods, rebuilds, and repeats the real native module UI smoke. This exercises the source-in-workspace layout used by a submodule checkout without introducing a submodule into this library repository.
 
+**Passed native evidence, 2026-09-10:** [GitHub run 34455535763](https://github.com/ivanjx/expo-cloudkit/actions/runs/34455535763) verified implementation commit `9e438311c7de26d0d47c722b2f1964990c37ea26` on Xcode26.4.1 / iPhone17 simulator / iOS26.4.1. All 281 JS tests and 145 native XCTest cases passed, including eight transport codec and three native lifecycle cases. Both the installed-tarball and source-linked Release apps passed real module creation/validation/teardown and native file-digest UI smoke. The run includes packed artifacts and raw Xcode results. Automated portions of gates1 and12 below are complete; physical-device provisioning and real CloudKit server scenarios are not.
+
 ## Required signed-device gates (not production-ready)
 
 Use the lab's generated `TransportVerification-...` zones, a disposable app/container and two clients on the same iCloud account. Never delete an existing dataset. Capture generation, identity, correlation IDs, record change tags/system fields, errors and checkpoint decisions. The detailed button-by-button procedure is in the example README.

@@ -28,7 +28,8 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ### Verification boundary
 
-- Real conflict, partial-record/asset preservation, account-switching, checkpoint expiry and signed-device cancellation gates remain required; JS tests and unsigned simulator checks are not CloudKit server compatibility evidence.
+- [GitHub macOS verification passed](https://github.com/ivanjx/expo-cloudkit/actions/runs/34455535763) at `9e43831`: 281 JS tests, 145 native XCTest cases, and real simulator module/file-digest smoke for both installed tarball and source-linked layouts.
+- Real conflict, partial-record/asset preservation, account-switching, checkpoint expiry and signed-device cancellation gates remain required; ad-hoc-signed simulator checks are not CloudKit server compatibility evidence.
 
 ---
 
