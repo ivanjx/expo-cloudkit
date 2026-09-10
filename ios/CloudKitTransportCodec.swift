@@ -246,7 +246,7 @@ enum CloudKitTransportCodec {
     return value
   }
 
-  private static func encodeField(_ value: CKRecordValueProtocol) throws -> [String: Any] {
+  private static func encodeField(_ value: Any) throws -> [String: Any] {
     switch value {
     case let v as String: return ["type": "string", "value": v]
     case let v as NSNumber: return ["type": "number", "value": v]
