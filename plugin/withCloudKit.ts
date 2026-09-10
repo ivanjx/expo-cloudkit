@@ -51,6 +51,13 @@ export interface WithCloudKitOptions {
   iCloudContainerEnvironment?: 'Development' | 'Production';
 
   /**
+   * Add the remote-notification background mode for push-driven sync.
+   * Defaults to true for existing integrations. Set false for manual foreground
+   * transport; existing modes and explicit background sync options are retained.
+   */
+  enableRemoteNotifications?: boolean;
+
+  /**
    * Optional BGTask identifier for background CloudKit sync.
    *
    * When set, the plugin:
@@ -101,6 +108,7 @@ const withCloudKitPlugin: ConfigPlugin<WithCloudKitOptions> = (config, options) 
   const {
     containerIds,
     iCloudContainerEnvironment = 'Production',
+    enableRemoteNotifications = true,
     backgroundSyncTaskIdentifier,
     appGroupIdentifier,
   } = options;
@@ -125,7 +133,10 @@ const withCloudKitPlugin: ConfigPlugin<WithCloudKitOptions> = (config, options) 
   // Step 1: Add iCloud entitlements
   config = withEntitlementsPlist(config, (config) => {
     // iCloud container identifiers
-    config.modResults['com.apple.developer.icloud-container-identifiers'] = containerIds;
+    const existingContainers =
+      (config.modResults['com.apple.developer.icloud-container-identifiers'] as string[]) ?? [];
+    config.modResults['com.apple.developer.icloud-container-identifiers'] =
+      Array.from(new Set([...existingContainers, ...containerIds]));
 
     // iCloud services — must include CloudKit
     const existingServices: string[] =
@@ -167,14 +178,16 @@ const withCloudKitPlugin: ConfigPlugin<WithCloudKitOptions> = (config, options) 
     const existingModes: string[] =
       (config.modResults['UIBackgroundModes'] as string[]) ?? [];
 
-    const requiredModes = ['remote-notification'];
+    const requiredModes = enableRemoteNotifications ? ['remote-notification'] : [];
     if (backgroundSyncTaskIdentifier) {
       // BGAppRefreshTask requires both 'fetch' and 'processing'.
       requiredModes.push('fetch', 'processing');
     }
 
-    const mergedModes = Array.from(new Set([...existingModes, ...requiredModes]));
-    config.modResults['UIBackgroundModes'] = mergedModes;
+    if (requiredModes.length > 0) {
+      config.modResults['UIBackgroundModes'] =
+        Array.from(new Set([...existingModes, ...requiredModes]));
+    }
 
     // BGTaskSchedulerPermittedIdentifiers -------------------------------------
     // The system uses this allowlist to validate BGTask identifiers at launch.

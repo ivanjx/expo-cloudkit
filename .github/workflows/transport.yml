@@ -1,0 +1,86 @@
+name: Caller-owned transport
+
+on:
+  push:
+    branches: ['feature/caller-owned-cloudkit-transport']
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: transport-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  expo57-ios:
+    name: Packed Expo 57 / iOS Simulator
+    runs-on: macos-26
+    timeout-minutes: 60
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
+      CLOUDKIT_CONTAINER_ID: iCloud.com.example.transportci
+      CLOUDKIT_BUNDLE_ID: com.example.transportci
+      CLOUDKIT_ENVIRONMENT: Development
+      EXPO_PUBLIC_CI_SMOKE: '1'
+      CI: '1'
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22.13.1'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            example-transport/package-lock.json
+      - name: Build and exercise SDK boundary
+        run: |
+          npm ci
+          npm run typecheck
+          npm run lint
+          npm test -- --runInBand
+          npm run build
+      - name: Pack and install real distribution
+        run: |
+          npm pack --pack-destination "$RUNNER_TEMP"
+          npm ci --prefix example-transport
+          npm install --prefix example-transport --no-save --package-lock=false "$RUNNER_TEMP/expo-cloudkit-0.21.0-fork.0.tgz"
+          node -e "const fs=require('fs'); const p='example-transport/node_modules/expo-cloudkit'; if(fs.lstatSync(p).isSymbolicLink()) throw Error('Must test installed tarball, not source symlink'); for(const f of ['build/transport.js','build/transport.d.ts','build/plugin/withCloudKit.js','ios/ExpoCloudKitTransportModule.swift','ExpoCloudKit.podspec','expo-module.config.json']) if(!fs.existsSync(p+'/'+f)) throw Error('Missing packed '+f)"
+      - name: Check exact dependency set and autolinking
+        working-directory: example-transport
+        run: |
+          npm run typecheck
+          # Compare to the pinned 57.0.12 bundled map, not Expo's rolling latest-patch advice.
+          EXPO_OFFLINE=1 npx expo install --check
+          npx expo-modules-autolinking resolve --platform apple
+          npx expo prebuild --platform ios --no-install
+      - name: Attach native tests and module-loading UI test
+        run: ruby .github/scripts/prepare-transport-tests.rb
+      - name: Install CocoaPods
+        working-directory: example-transport/ios
+        run: pod install
+      - name: Compile packed native module and run simulator tests
+        working-directory: example-transport/ios
+        run: |
+          set -o pipefail
+          SCHEME=$(cat transport-scheme.txt)
+          xcodebuild test \
+            -workspace "$SCHEME.xcworkspace" \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -destination 'platform=iOS Simulator,name=iPhone 17,OS=26.4' \
+            -resultBundlePath "$RUNNER_TEMP/Transport.xcresult" \
+            -only-testing:TransportNativeTests \
+            -only-testing:TransportModuleUITests \
+            CODE_SIGNING_ALLOWED=NO ENABLE_TESTABILITY=YES \
+            2>&1 | tee "$RUNNER_TEMP/transport-xcodebuild.log" | xcbeautify
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: transport-native-evidence
+          path: |
+            ${{ runner.temp }}/Transport.xcresult
+            ${{ runner.temp }}/transport-xcodebuild.log
+            ${{ runner.temp }}/expo-cloudkit-0.21.0-fork.0.tgz
+          if-no-files-found: warn

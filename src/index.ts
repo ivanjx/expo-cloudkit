@@ -22,6 +22,9 @@
  * ```
  */
 
+// Standalone callers can import 'expo-cloudkit/transport' without loading this barrel.
+export * from './transport';
+
 // Types — re-export everything so consumers don't need to import from sub-paths
 export type {
   AccountStatus,

@@ -94,18 +94,29 @@ const isIOS = Platform.OS === 'ios';
  * which we catch and replace with a stub that throws CloudKitNotSupportedError
  * on every call.
  */
+type NativeEvents = {
+  onAccountStatusChanged: (event: { status: AccountStatus }) => void;
+  onSyncEngineEvent: (event: SyncEngineEvent) => void;
+  onAssetProgress: (event: AssetProgress) => void;
+  onBatchProgress: (event: BatchProgress) => void;
+  onSubscriptionEvent: (event: SubscriptionEvent) => void;
+  onParticipantChanged: (event: ParticipantChangedEvent) => void;
+  onShareAccepted: (event: ShareAcceptedEvent) => void;
+  onOfflineQueueEvent: (event: OfflineQueueEvent) => void;
+  onSyncHealth: (event: SyncHealthEvent) => void;
+  onRateLimited: (event: RateLimitedEvent) => void;
+  onPresenceChanged: (event: PresenceChangedEvent) => void;
+  onLiveActivityUpdate: (event: LiveActivityUpdateEvent) => void;
+};
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let NativeModule: Record<string, any> | null = null;
-let emitter: EventEmitter | null = null;
+let emitter: InstanceType<typeof EventEmitter<NativeEvents>> | null = null;
 
 try {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const mod = requireNativeModule<Record<string, any>>('ExpoCloudKit');
+  const mod = requireNativeModule<InstanceType<typeof EventEmitter<NativeEvents>> & Record<string, unknown>>('ExpoCloudKit');
   NativeModule = mod;
-  // EventEmitter expects { __expo_module_name__?, startObserving?, stopObserving?, ... }
-  // The return value of requireNativeModule satisfies this at runtime.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  emitter = new EventEmitter(mod as any);
+  emitter = new EventEmitter<NativeEvents>(mod);
 } catch {
   // Platform does not support CloudKit. All calls will produce a clear error.
 }
