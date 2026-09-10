@@ -8,7 +8,7 @@ Read against the exact [Expo SDK 57 reference](https://docs.expo.dev/versions/v5
 
 The committed example pins Expo **57.0.12**, React Native **0.86.2**, and React **19.2.3**. Native dependencies were installed using `npx expo install`. The initial `~57.0.12` install resolved Expo 57.0.21 and recommended RN 0.86.3; Expo was subsequently pinned to the requested 57.0.12 baseline, whose bundled dependency table recommends RN 0.86.2. The lock currently resolves compatible patch updates: expo-modules-core 57.0.17, expo-constants 57.0.17, expo-file-system 57.0.6, expo-dev-client 57.0.18, and @expo/config-plugins 57.0.9. `npm ci` preserves the exact resolution; reinstalling without the lock may select newer patches.
 
-A signed physical iPhone, an iCloud account, an Apple Developer team, and a provisioned **disposable verification app/container** are required for real CloudKit gates. Expo Go cannot load this module. Simulator/unsigned CI module-loading checks do not prove real account, conflict, asset, or CloudKit server semantics. Do not use a production/user dataset.
+A signed physical iPhone, an iCloud account, an Apple Developer team, and a provisioned **disposable verification app/container** are required for real CloudKit gates. Expo Go cannot load this module. Ad-hoc-signed simulator CI checks do not prove real account, conflict, asset, or CloudKit server semantics. Do not use a production/user dataset.
 
 ## Reproducible source and packed installation
 
@@ -69,7 +69,7 @@ For subsequent JS work with that installed development binary:
 npm start
 ```
 
-No EAS/paid builds or publication are needed. `EXPO_PUBLIC_CI_SMOKE=1` replaces the lab UI with a native-loading smoke screen: it requires the native module, creates a session, submits an empty targeted fetch (native validation before any account/network call), checks `invalidArguments` plus generation `ci-smoke`, disposes twice, and only then exposes `transport-native-loaded` as an accessibility label/test ID. A missing or incompatible module displays `transport-native-failed: ...`. This proves only module/bridge/session/validation loading, not CloudKit operations. Unset the variable and rebuild/rebundle for real device verification.
+No EAS/paid builds or publication are needed. `EXPO_PUBLIC_CI_SMOKE=1` replaces the lab UI with a native-loading smoke screen: it requires the native module, creates a session, submits an empty targeted fetch (native validation before any account/network call), checks `invalidArguments` plus generation `ci-smoke`, and disposes twice. It also exercises the real native file-digest API against known bytes and equal-length changed bytes, deleting its temporary probe afterward. Only then does it expose `transport-native-loaded` as an accessibility label/test ID. A missing or incompatible module displays `transport-native-failed: ...`. This proves module/bridge/session/validation and local file-digest loading, not CloudKit operations. Unset the variable and rebuild/rebundle for real device verification.
 
 ## Device procedure and expected observations
 
@@ -95,4 +95,4 @@ Downloads are in the native transport's durable staging directory; notebook entr
 
 ## Evidence boundaries
 
-Dependency installation and exact installed-version inspection were completed on Windows. Native compilation, simulator UI, signing, real iCloud account transitions, conflicts, asset preservation, restart durability, and callback/copy cancellation must be evaluated by the parent validation/CI run or on a signed device. TypeScript tests and the unsigned smoke do not establish those server semantics or production readiness.
+Dependency installation, exact installed-version inspection, tarball/source autolinking, and Hermes bundling were exercised on Windows. Source bundling uses a single React/React Native/Expo Modules Core runtime after explicit Expo resolver configuration. Native compilation and simulator UI are exercised by GitHub macOS CI; consult its actual run conclusion. Real iCloud account transitions, conflicts, asset preservation, restart durability, and callback/copy cancellation still require the signed-device procedure. TypeScript tests and the ad-hoc-signed simulator smoke do not establish those server semantics or production readiness.

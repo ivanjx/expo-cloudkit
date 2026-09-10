@@ -7,6 +7,17 @@ project_path = Dir.glob(File.join(ios, '*.xcodeproj')).first or abort 'Expo preb
 project = Xcodeproj::Project.open(project_path)
 app = project.targets.find { |target| target.product_type == 'com.apple.product-type.application' } or abort 'Missing app target'
 
+if ARGV.include?('--after-pods')
+  unit = project.targets.find { |target| target.name == 'TransportNativeTests' } or abort 'Missing hosted test target'
+  # Expo generates a provider for inherited targets too. The test host already owns it.
+  unit.source_build_phase.files.select { |file| file.file_ref&.display_name == 'ExpoModulesProvider.swift' }
+      .each(&:remove_from_project)
+  unit.shell_script_build_phases.select { |phase| phase.name == '[Expo] Configure project' }
+      .each(&:remove_from_project)
+  project.save
+  exit
+end
+
 def add_test_target(project, app, name, type, files)
   target = project.new_target(type, name, :ios, '16.4')
   target.product_name = name
@@ -14,13 +25,12 @@ def add_test_target(project, app, name, type, files)
   target.add_dependency(app)
   target.build_configurations.each do |config|
     config.build_settings['SWIFT_VERSION'] = '5.0'
-    # Expo 57's generated provider imports modules internally; match that test-only default.
-    config.build_settings['OTHER_SWIFT_FLAGS'] = '$(inherited) -enable-upcoming-feature InternalImportsByDefault'
     config.build_settings['GENERATE_INFOPLIST_FILE'] = 'YES'
     config.build_settings['PRODUCT_NAME'] = name
     config.build_settings['PRODUCT_MODULE_NAME'] = name
     config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = "com.example.cloudkittransport.#{name}"
-    config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
+    config.build_settings['CODE_SIGNING_ALLOWED'] = 'YES'
+    config.build_settings['CODE_SIGN_IDENTITY'] = '-'
     if type == :unit_test_bundle
       config.build_settings['TEST_HOST'] = "$(BUILT_PRODUCTS_DIR)/#{app.name}.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/#{app.name}"
       config.build_settings['BUNDLE_LOADER'] = '$(TEST_HOST)'
@@ -46,12 +56,12 @@ scheme.add_test_target(ui)
 scheme.save!
 project.save
 
-# A nested target inherits the app's autolinked pod dependency. Do not redeclare
-# ExpoCloudKit with a second source; that would hide packed-package resolution.
+# Hosted tests inherit search paths; the application supplies linked pods and its provider.
+# Do not redeclare ExpoCloudKit with a second source and hide packed-package resolution.
 podfile = File.join(ios, 'Podfile')
 content = File.read(podfile)
 abort 'Expected Expo autolinking declaration missing' unless content.include?('use_expo_modules!')
-content.sub!('use_expo_modules!', "use_expo_modules!\n  target 'TransportNativeTests' do\n    inherit! :complete\n  end")
+content.sub!('use_expo_modules!', "use_expo_modules!\n  target 'TransportNativeTests' do\n    inherit! :search_paths\n  end")
 File.write(podfile, content)
 File.write(File.join(ios, 'transport-scheme.txt'), app.name)
 puts "Prepared #{app.name}: #{files.length} native test files and actual module-loading UI test"

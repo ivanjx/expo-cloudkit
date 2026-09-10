@@ -228,6 +228,8 @@ Expo's online `expo install --check` currently recommends newer rolling SDK57/RN
 
 GitHub workflow `.github/workflows/transport.yml` is invoked by ordinary CI and by the feature branch. It installs the tarball into the exact example, runs all JS tests, autolinking/prebuild/CocoaPods, the native XCTest suite and a Release-app UI smoke which calls real module create/validation/dispose methods. It uses a standard public macOS runner, no signing secrets, paid build or publication. Raw Xcode logs/results and the tarball are uploaded as evidence. Consult the actual run conclusion; adding the workflow alone is not a passed gate.
 
+Simulator CI enables local ad-hoc signing (`CODE_SIGN_IDENTITY=-`) so the plugin-generated CloudKit entitlements remain present. CloudKit requires those entitlements even when constructing a container before any network operation. This uses no developer signing credentials and does not provision or authorize a real CloudKit container.
+
 It then replaces the tarball with a verified direct `file:..` source link, reruns Apple autolinking/CocoaPods, rebuilds, and repeats the real native module UI smoke. This exercises the source-in-workspace layout used by a submodule checkout without introducing a submodule into this library repository.
 
 ## Required signed-device gates (not production-ready)

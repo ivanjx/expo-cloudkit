@@ -61,7 +61,9 @@ jobs:
         run: ruby .github/scripts/prepare-transport-tests.rb
       - name: Install CocoaPods
         working-directory: example-transport/ios
-        run: pod install
+        run: |
+          pod install
+          ruby ../../.github/scripts/prepare-transport-tests.rb --after-pods
       - name: Compile packed native module and run simulator tests
         working-directory: example-transport/ios
         run: |
@@ -75,7 +77,7 @@ jobs:
             -resultBundlePath "$RUNNER_TEMP/Transport.xcresult" \
             -only-testing:TransportNativeTests \
             -only-testing:TransportModuleUITests \
-            CODE_SIGNING_ALLOWED=NO ENABLE_TESTABILITY=YES \
+            CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- ENABLE_TESTABILITY=YES \
             2>&1 | tee "$RUNNER_TEMP/transport-xcodebuild.log" | xcbeautify
       - name: Relink library source for submodule-style verification
         working-directory: example-transport
@@ -88,6 +90,7 @@ jobs:
         run: |
           set -o pipefail
           pod install
+          ruby ../../.github/scripts/prepare-transport-tests.rb --after-pods
           SCHEME=$(cat transport-scheme.txt)
           xcodebuild test \
             -workspace "$SCHEME.xcworkspace" \
@@ -96,7 +99,7 @@ jobs:
             -destination 'platform=iOS Simulator,name=iPhone 17,OS=26.4.1' \
             -resultBundlePath "$RUNNER_TEMP/TransportSource.xcresult" \
             -only-testing:TransportModuleUITests \
-            CODE_SIGNING_ALLOWED=NO ENABLE_TESTABILITY=YES \
+            CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- ENABLE_TESTABILITY=YES \
             2>&1 | tee "$RUNNER_TEMP/transport-source-xcodebuild.log" | xcbeautify
       - uses: actions/upload-artifact@v4
         if: always()
