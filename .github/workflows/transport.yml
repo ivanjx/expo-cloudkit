@@ -27,6 +27,8 @@ jobs:
       CI: '1'
     steps:
       - uses: actions/checkout@v5
+      - name: Typecheck native transport against Apple SDK
+        run: xcrun swiftc -typecheck -swift-version 5 -target arm64-apple-macosx13.0 ios/CloudKitTransport.swift ios/CloudKitTransportCodec.swift
       - uses: actions/setup-node@v5
         with:
           node-version: '22.13.1'
@@ -69,7 +71,7 @@ jobs:
             -workspace "$SCHEME.xcworkspace" \
             -scheme "$SCHEME" \
             -configuration Release \
-            -destination 'platform=iOS Simulator,name=iPhone 17,OS=26.4' \
+            -destination 'platform=iOS Simulator,name=iPhone 17,OS=26.4.1' \
             -resultBundlePath "$RUNNER_TEMP/Transport.xcresult" \
             -only-testing:TransportNativeTests \
             -only-testing:TransportModuleUITests \

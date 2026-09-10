@@ -339,7 +339,7 @@ final class CloudKitTransport {
   private func keys(_ payload: Dictionary, _ name: String, nonempty: Bool = false) throws -> [String] {
     guard let values = payload[name] as? [String], values.count <= 200,
           !nonempty || !values.isEmpty,
-          values.allSatisfy({ !$0.isEmpty && $0.utf8.count <= 255 }),
+          values.allSatisfy(CloudKitTransportCodec.isValidFieldName),
           Set(values).count == values.count else {
       throw TransportFailure("invalidArguments", "\(name) must contain at most 200 unique, nonempty field names.")
     }

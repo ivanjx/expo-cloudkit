@@ -62,6 +62,18 @@ final class CloudKitTransportCodecTests: XCTestCase {
     }
   }
 
+  func testInvalidFieldNamesAreRejectedBeforeCloudKitSetters() throws {
+    let record = CKRecord(recordType: "TransportProbe", recordID: CKRecord.ID(recordName: "stable", zoneID: zone))
+    let input = try write(record, set: ["bad.key": ["type": "string", "value": "value"]], clear: [])
+    XCTAssertThrowsError(try CloudKitTransportCodec.decodeWrite(input, scope: scope)) { error in
+      XCTAssertEqual((error as? TransportFailure)?.code, "invalidArguments")
+    }
+    let clear = try write(record, set: [:], clear: ["_reserved"])
+    XCTAssertThrowsError(try CloudKitTransportCodec.decodeWrite(clear, scope: scope)) { error in
+      XCTAssertEqual((error as? TransportFailure)?.code, "invalidArguments")
+    }
+  }
+
   func testReferencesRetainFullIdentityAndDatesRetainMilliseconds() throws {
     let record = CKRecord(recordType: "TransportProbe", recordID: CKRecord.ID(recordName: "stable", zoneID: zone))
     let ref = CKRecord.ID(recordName: "dependency", zoneID: CKRecordZone.ID(zoneName: "ForeignZone", ownerName: "owner"))

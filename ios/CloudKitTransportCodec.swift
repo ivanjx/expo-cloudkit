@@ -172,13 +172,22 @@ enum CloudKitTransportCodec {
     return result
   }
 
+  /// CloudKit field keys are ASCII schema identifiers. Validate before calling
+  /// Objective-C setters, whose invalid-argument exceptions Swift cannot catch.
+  static func isValidFieldName(_ name: String) -> Bool {
+    let bytes = name.utf8
+    let letter: (UInt8) -> Bool = { (65...90).contains($0) || (97...122).contains($0) }
+    guard bytes.count <= 255, let first = bytes.first, letter(first) else { return false }
+    return bytes.dropFirst().allSatisfy { letter($0) || (48...57).contains($0) || $0 == 95 }
+  }
+
   static func decodeWrite(_ dict: [String: Any], scope: TransportScope) throws -> CKRecord {
     let id = try recordID(dict)
     guard let type = dict["recordType"] as? String, !type.isEmpty,
           let set = dict["set"] as? [String: [String: Any]], let clear = dict["clear"] as? [String],
           let correlation = dict["correlationId"] as? String, !correlation.isEmpty,
           Set(clear).count == clear.count,
-          !set.keys.contains(where: { $0.isEmpty }), !clear.contains(where: { $0.isEmpty }),
+          set.keys.allSatisfy(isValidFieldName), clear.allSatisfy(isValidFieldName),
           Set(set.keys).isDisjoint(with: clear) else {
       throw TransportFailure("invalidArguments", "Provide a record type, correlation ID, and disjoint explicit set/clear masks.")
     }
@@ -321,9 +330,16 @@ enum CloudKitTransportCodec {
     throw TransportFailure("invalidRecord", "Unsupported field type or incompatible field value.")
   }
 
-  /// Initialized once, before any copies in this process. Only abandoned private
-  /// partial directories are removed. Completed (caller-owned) files are untouched.
-  private static let stagingRoot: Result<URL, Error> = Result {
+  private static let stagingLock = NSLock()
+  private static var initializedStagingRoot: URL?
+
+  /// Only successful initialization is cached. A caller can retry after freeing
+  /// disk space; failed setup must not poison every later operation this process.
+  /// The lock also keeps first-use abandoned-partial cleanup ahead of all copies.
+  private static func stagingRoot() throws -> URL {
+    stagingLock.lock()
+    defer { stagingLock.unlock() }
+    if let root = initializedStagingRoot { return root }
     let fm = FileManager.default
     let support = try fm.url(for: .applicationSupportDirectory, in: .userDomainMask,
                              appropriateFor: nil, create: true)
@@ -338,15 +354,16 @@ enum CloudKitTransportCodec {
         try fm.removeItem(at: url)
       }
     }
+    initializedStagingRoot = root
     return root
   }
 
   static func stageAssets(_ record: CKRecord, fields: [String], cancelled: () -> Bool) throws -> [[String: Any]] {
-    guard !fields.isEmpty, Set(fields).count == fields.count, !fields.contains("") else {
+    guard !fields.isEmpty, Set(fields).count == fields.count, fields.allSatisfy(isValidFieldName) else {
       throw TransportFailure("invalidArguments", "Specify unique nonempty asset field names.")
     }
     if cancelled() { throw TransportFailure("cancelled", "Asset download cancelled.") }
-    let root = try stagingRoot.get()
+    let root = try stagingRoot()
     let fm = FileManager.default
     let name = UUID().uuidString
     let partial = root.appendingPathComponent(".partial-" + name, isDirectory: true)
@@ -399,7 +416,7 @@ enum CloudKitTransportCodec {
   /// Internal failed-delivery cleanup. Successful staging belongs to the caller;
   /// teardown never deletes a successfully handed-off file.
   static func removeStagedAssets(_ assets: [[String: Any]]) {
-    guard let root = try? stagingRoot.get() else { return }
+    guard let root = try? stagingRoot() else { return }
     var directories: Set<URL> = []
     for asset in assets {
       guard let string = asset["uri"] as? String, let url = URL(string: string), url.isFileURL,
