@@ -35,6 +35,8 @@ The checked-in dependency is `file:..` for source development. The explicit tarb
 
 For an intentionally managed source submodule in another application's workspace, first run `npm ci && npm run build` inside the submodule, then install `file:../vendor/expo-cloudkit` (adjust to the app's actual relative path), and regenerate/reinstall native pods in that app. Do not depend on an implicit Git lifecycle build. This repository does not add a submodule. For distribution, prefer the exact versioned tarball.
 
+The example explicitly enables Expo's autolinking module resolver and includes `react` in singleton resolution. Keep those settings when consuming a source checkout with its own development dependencies: a `file:` link is not automatically a workspace, and otherwise Metro can bundle duplicate React/React Native/Expo runtimes. See the configuration in `app.config.js` and `expo.autolinking` in `package.json`.
+
 ## Configuration, autolinking, and native build
 
 Set these environment variables in the shell used for **both prebuild and Metro**:

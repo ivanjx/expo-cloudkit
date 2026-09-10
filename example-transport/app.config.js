@@ -14,6 +14,8 @@ module.exports = {
     version: '1.0.0',
     orientation: 'portrait',
     platforms: ['ios'],
+    // A file: source link is not an npm workspace; opt into Expo's singleton resolver explicitly.
+    experiments: { autolinkingModuleResolution: true },
     ios: { bundleIdentifier, supportsTablet: true },
     plugins: [
       ['expo-cloudkit', {

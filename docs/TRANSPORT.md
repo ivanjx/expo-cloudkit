@@ -177,6 +177,8 @@ npm install ./vendor/expo-cloudkit
 
 Paths above assume the application's `vendor/expo-cloudkit` directory; adjust to the actual layout. In app CI, initialize submodules before dependency installation, build inside the submodule explicitly, then install application dependencies. Rebuild compiled JS/plugin after changing the submodule revision; regenerate/reinstall native pods after native/config changes. On macOS use the app's Expo prebuild/pod workflow and a real development binary. A JS reload cannot install native code. Never depend on an implicit Git lifecycle build or commit ignored build outputs as a substitute for the reproducible build step.
 
+For a `file:`-linked checkout with its own development `node_modules`, enable `experiments.autolinkingModuleResolution: true` in the Expo app config and set `expo.autolinking.include: ["react"]` in the app's `package.json`, as the lab does. A source link alone is not an npm workspace: without explicit singleton resolution, Metro can bundle the library's development React/React Native/Expo copies alongside the application's copies. Use Expo's [documented resolver and deduplication settings](https://docs.expo.dev/guides/monorepos/#deduplicating-auto-linked-native-modules).
+
 The packed-package acceptance route remains useful even when consuming source:
 
 ```sh

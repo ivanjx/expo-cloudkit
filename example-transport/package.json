@@ -21,5 +21,10 @@
   "devDependencies": {
     "@types/react": "~19.2.14",
     "typescript": "~5.9.2"
+  },
+  "expo": {
+    "autolinking": {
+      "include": ["react"]
+    }
   }
 }

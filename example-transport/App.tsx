@@ -60,6 +60,21 @@ function NativeLoadingSmoke() {
         if (result.status !== 'failed' || result.error.code !== 'invalidArguments' || result.generation !== 'ci-smoke') {
           throw new Error(`Unexpected native validation receipt: ${JSON.stringify(result)}`);
         }
+        // Exercise the real native digest API used by the lab, including equal-length corruption.
+        const probe = new File(Paths.cache, `transport-digest-smoke-${unique()}`);
+        try {
+          probe.create();
+          probe.write('abc');
+          const expected = '900150983cd24fb0d6963f7d28e17f72';
+          if (probe.md5 !== expected) throw new Error('Native file digest did not match known bytes.');
+          probe.write('abd');
+          const changed = probe.md5;
+          if (probe.size !== 3 || !changed || changed === expected) {
+            throw new Error('Native file digest failed to distinguish equal-length changed bytes.');
+          }
+        } finally {
+          if (probe.exists) probe.delete();
+        }
         if (mounted) setStatus('transport-native-loaded');
       } catch (error) {
         if (mounted) setStatus(`transport-native-failed: ${String(error)}`);
