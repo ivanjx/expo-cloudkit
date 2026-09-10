@@ -9,6 +9,27 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.21.0-fork.0] — 2026-09-10 (unpublished fork)
+
+### Added
+
+- Independent `expo-cloudkit/transport` entry and `ExpoCloudKitTransport` native module: explicit private/custom-zone sessions, opaque account bindings, generation fencing, removable account notifications, and idempotent teardown.
+- Caller-owned serializable/scoped change tokens, paginated changes with replay-safe partial failures, and bounded per-record targeted fetch results.
+- Conditional `.ifServerRecordUnchanged` saves reconstructed from system fields and explicit set/clear masks; correlation IDs, conflicts, partial acknowledgements, retry hints, native diagnostics, and uncertain-commit cancellation outcomes.
+- Separate durable asset staging with owner/version metadata, cancellation-aware copying, private partial-file cleanup, and caller-owned upload sources.
+- Expo 57.0.12 / RN 0.86.2 / React 19.2.3 native verification example, focused regressions, macOS CI, application handoff and signed-device gate procedure.
+- Explicit submodule build and packed installation instructions; `prepack` compiles JS, declarations and plugin. No package is published.
+
+### Changed
+
+- Config plugin merges container entitlements and supports `enableRemoteNotifications: false` without removing intentional existing modes. Legacy default remains enabled.
+- Expo Apple metadata explicitly names the root podspec and both native modules for SDK 57 autolinking.
+- Native minimum iOS version is 16.0 (the Expo 57 example requires 16.4). Updated development dependency locks and legacy emitter instance typing for SDK 57.
+
+### Verification boundary
+
+- Real conflict, partial-record/asset preservation, account-switching, checkpoint expiry and signed-device cancellation gates remain required; JS tests and unsigned simulator checks are not CloudKit server compatibility evidence.
+
 ---
 
 ## [0.20.8] — 2026-04-04

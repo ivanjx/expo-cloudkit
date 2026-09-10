@@ -1,5 +1,12 @@
 # expo-cloudkit
 
+> **Fork transport:** this checkout adds the caller-owned, foreground-only
+> `expo-cloudkit/transport` API for SQLite-first applications. It is distinct from
+> the legacy sync/queue APIs below. See the [transport API and application handoff](docs/TRANSPORT.md)
+> and [Expo 57 device lab](example-transport/README.md). Build the pinned source
+> submodule explicitly before installing it; no npm publication is required.
+> Signed-device CloudKit gates must pass before production use.
+
 [![npm version](https://img.shields.io/npm/v/expo-cloudkit)](https://www.npmjs.com/package/expo-cloudkit)
 [![CI](https://github.com/atlas-ledger/expo-cloudkit/actions/workflows/ci.yml/badge.svg)](https://github.com/atlas-ledger/expo-cloudkit/actions)
 [![MIT license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)

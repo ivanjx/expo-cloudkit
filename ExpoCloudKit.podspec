@@ -9,10 +9,10 @@ Pod::Spec.new do |s|
   s.description    = package['description']
   s.license        = package['license']
   s.author         = 'Expo'
-  s.homepage       = 'https://github.com/DevLab-Innovations/expo-cloudkit'
+  s.homepage       = 'https://github.com/ivanjx/expo-cloudkit'
   s.platform       = :ios, '16.0'
-  s.swift_version  = '5.9'
-  s.source         = { git: 'https://github.com/DevLab-Innovations/expo-cloudkit.git' }
+  s.swift_version  = '5.0'
+  s.source         = { git: 'https://github.com/ivanjx/expo-cloudkit.git' }
   s.static_framework = true
 
   s.dependency 'ExpoModulesCore'
