@@ -2,7 +2,8 @@ require 'xcodeproj'
 
 # Inject tests into a freshly prebuilt verification app, never a user project.
 root = File.expand_path('../..', __dir__)
-ios = File.join(root, 'example-transport/ios')
+consumer = File.expand_path(ENV.fetch('CLOUDKIT_CONSUMER_DIR', File.join(root, 'example-transport')))
+ios = File.join(consumer, 'ios')
 project_path = Dir.glob(File.join(ios, '*.xcodeproj')).first or abort 'Expo prebuild did not produce an Xcode project'
 project = Xcodeproj::Project.open(project_path)
 app = project.targets.find { |target| target.product_type == 'com.apple.product-type.application' } or abort 'Missing app target'
@@ -43,7 +44,17 @@ def add_test_target(project, app, name, type, files)
   target
 end
 
-files = Dir.glob(File.join(root, 'ios/Tests/*.swift'))
+# Packed verification must compile the tests shipped in the installed package,
+# never reach back into the checkout for the native regression suite.
+package = root
+if ENV.key?('CLOUDKIT_CONSUMER_DIR')
+  consumer_real = File.realpath(consumer)
+  root_real = File.realpath(root)
+  abort 'Packed consumer must be outside the checkout' if consumer_real == root_real || consumer_real.start_with?("#{root_real}/")
+  package = File.join(consumer_real, 'node_modules/expo-cloudkit')
+  abort 'Packed package must not resolve through a source link' unless File.realpath(package) == package
+end
+files = Dir.glob(File.join(package, 'ios/Tests/*.swift'))
 abort 'Native regression tests missing' if files.empty?
 unit = add_test_target(project, app, 'TransportNativeTests', :unit_test_bundle, files)
 ui = add_test_target(project, app, 'TransportModuleUITests', :ui_test_bundle,

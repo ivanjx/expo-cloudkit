@@ -161,38 +161,138 @@ Ownership rules:
 
 For batches/pages, cancellation returns accumulated successes and explicit failure/unattempted outcomes, not one undifferentiated rejection. A completed receipt remains authoritative even if application acknowledgement is delayed. Application generation fencing must not turn a stale result into permission to mutate another account's SQLite state; retain/reconcile it under its originating binding instead.
 
-## Build and submodule installation
+## Built release installation
 
-No npm publication, tag, registry account or EAS build is needed. Keep the submodule at an exact reviewed commit. This repository does not create an application submodule.
+The distribution target is a public, immutable GitHub Release tarball from
+`ivanjx/expo-cloudkit`, not the upstream npm package. **UNPUBLISHED:**
+the proposed tag `v0.21.0-fork.0` has no release assets yet. These are the exact
+expected coordinates, not available dependencies:
 
-```sh
-# In the checked-out library source/submodule:
-npm ci
-npm run build
+- Tarball: https://github.com/ivanjx/expo-cloudkit/releases/download/v0.21.0-fork.0/expo-cloudkit-0.21.0-fork.0.tgz
+- SHA-256 file: https://github.com/ivanjx/expo-cloudkit/releases/download/v0.21.0-fork.0/expo-cloudkit-0.21.0-fork.0.tgz.sha256
 
-# In the application, after its submodule already exists:
-npm install ./vendor/expo-cloudkit
-# package.json dependency: "expo-cloudkit": "file:vendor/expo-cloudkit"
-```
-
-Paths above assume the application's `vendor/expo-cloudkit` directory; adjust to the actual layout. In app CI, initialize submodules before dependency installation, build inside the submodule explicitly, then install application dependencies. Rebuild compiled JS/plugin after changing the submodule revision; regenerate/reinstall native pods after native/config changes. On macOS use the app's Expo prebuild/pod workflow and a real development binary. A JS reload cannot install native code. Never depend on an implicit Git lifecycle build or commit ignored build outputs as a substitute for the reproducible build step.
-
-For a `file:`-linked checkout with its own development `node_modules`, enable `experiments.autolinkingModuleResolution: true` in the Expo app config and set `expo.autolinking.include: ["react"]` in the app's `package.json`, as the lab does. A source link alone is not an npm workspace: without explicit singleton resolution, Metro can bundle the library's development React/React Native/Expo copies alongside the application's copies. Use Expo's [documented resolver and deduplication settings](https://docs.expo.dev/guides/monorepos/#deduplicating-auto-linked-native-modules).
-
-The packed-package acceptance route remains useful even when consuming source:
+Only after publication and checksum verification, install in the application:
 
 ```sh
-# Library root
-npm ci
-npm run build
-npm pack
-# example-transport
-npm ci
-npm install --no-save --package-lock=false --ignore-scripts ../expo-cloudkit-0.21.0-fork.0.tgz
-npm run typecheck
+npx expo install "https://github.com/ivanjx/expo-cloudkit/releases/download/v0.21.0-fork.0/expo-cloudkit-0.21.0-fork.0.tgz"
 ```
 
-`prepack` builds JS/declarations and compiled plugin; package allowlists include native sources/podspec, Expo metadata, root entries and docs. Verify the installed example is an unpacked directory, not the source link. The metadata explicitly names the root podspec; mere package discovery without native pod resolution is insufficient. See [the device lab](../example-transport/README.md) for environment variables and native commands.
+```json
+{
+  "dependencies": {
+    "expo-cloudkit": "https://github.com/ivanjx/expo-cloudkit/releases/download/v0.21.0-fork.0/expo-cloudkit-0.21.0-fork.0.tgz"
+  }
+}
+```
+
+Commit the exact URL and npm lockfile, including resolved integrity; subsequent
+clean installs use `npm ci`. Public assets require no credentials or registry
+account. If repository visibility changes, resolve and document the access
+requirement rather than introducing an undisclosed private registry or token.
+Keep release bytes available and unchanged: a changed artifact needs a new
+version/tag, never asset replacement. Do not use `latest`, a branch, GitHub's
+automatic source archive, or an expiring Actions artifact as the dependency.
+
+The package name and `expo-cloudkit/transport` import are unchanged. No source
+submodule or library preparation hook is needed. The tarball contains compiled
+JavaScript, declarations and config plugin, native sources/podspec, and Expo
+metadata. It does not install the library's development dependencies or compile
+its TypeScript in the application. Swift still compiles in the app's normal iOS
+build: this is not a native binary/XCFramework or an offline dependency installer.
+Normal npm/CocoaPods installation still needs online dependencies unless cached.
+Native/config changes require regenerating the native project as appropriate
+and building a new development or release binary; a JS reload is insufficient.
+
+For library development only, the example retains a `file:..` source link; build
+that checkout explicitly with `npm ci` followed by `npm run build`. This is not
+the consumer distribution route. Source-link singleton settings are explained
+in [the device lab](../example-transport/README.md).
+
+## Maintainer release procedure
+
+No release tag or public release publication is authorized by preparing this change. The version
+remains `0.21.0-fork.0`. The eventual release must come from the reviewed
+`feature/github-release-tarballs` work containing the caller-owned transport,
+whose base is `60972b13aac670a8f4d1d1dd1cce1c29877e8660`; do not release an
+unrelated `main` revision without that implementation. This base is not a claim
+about the final release source commit.
+
+1. Review the complete release change and finish the applicable CI gates,
+   including the outside-checkout packed consumer and macOS native build.
+   Commit the reviewed source and documentation on the feature branch.
+   Record its actual commit, package version and build checksum from the
+   packaging output; none is fabricated in this document.
+2. For local packaging, run `npm ci`, then
+   `node .github/scripts/pack-release.mjs <output-directory>`.
+   The helper requires a new or empty output directory, invokes `npm pack --json` exactly
+   once, and uses the filename returned by npm. Its `prepack` lifecycle builds
+   JS, declarations and plugin; do not add a redundant `npm run build` before
+   packing. Output is the `.tgz`, `<filename>.sha256` in `sha256sum` format, and
+   `release.json` with `filename`, `version`, `tag`, `sourceCommit`, `sourceDirty`, and `sha256`.
+3. Run the [clean-consumer procedure](../example-transport/README.md#reproducible-source-and-packed-installation)
+   against those actual bytes. Packaging alone is not proof of a native build,
+   and historical CI is not a passing result for the new release revision.
+4. **Only with separate publication authorization**, from that clean, reviewed
+   transport-containing feature-branch commit, create and push the exact tag:
+
+   ```sh
+   git tag -a v0.21.0-fork.0 -m "Release v0.21.0-fork.0"
+   git push origin refs/tags/v0.21.0-fork.0
+   ```
+
+   These are future publication commands, not actions performed by this task.
+   The tag must equal `v` plus `package.json`'s version exactly.
+5. The [release workflow](https://github.com/ivanjx/expo-cloudkit/actions/workflows/publish.yml)
+   checks out the tag, installs locked dependencies, validates and packs once.
+   It verifies `GITHUB_REF_TYPE=tag` / `GITHUB_REF_NAME` against the version.
+   Read-only validation jobs pass the same tarball, checksum and metadata through
+   `release-package`; downstream jobs verify checksums before use or upload.
+   Only the release job receives `contents: write`, using the repository's
+   `GITHUB_TOKEN`, not npm credentials. Release creation uses
+   `gh release create --verify-tag` with the explicit tarball/checksum assets;
+   an existing release fails instead of overwriting assets. It does not repack
+   after validation.
+6. Confirm the workflow's actual conclusion and both public asset downloads.
+   Verify the downloaded checksum with `sha256sum -c <filename>.sha256`
+   (or `shasum -a 256 -c <filename>.sha256` on macOS) from their directory.
+   Record the actual source commit/checksum and release evidence, then hand off
+   the now-available coordinates. Do not treat this planned URL as published.
+
+## MainteNote migration handoff
+
+**Blocked on an actual published, verified release, not requested in this task.**
+Do not modify MainteNote or replace its dependency with an unpublished URL.
+Once both assets above are available, the app maintainer should:
+
+1. Run the exact `npx expo install` command above; commit the immutable tarball
+   URL in `package.json` and the updated npm lockfile with resolved integrity.
+2. Remove only MainteNote's CloudKit source submodule through a scoped Git
+   submodule removal and remove its specific `.gitmodules` entry. Inspect the
+   app's actual submodule path first; preserve other submodules and unrelated
+   local work, and do not use a blanket vendor-directory deletion.
+3. Remove `scripts/prepare-cloudkit.cjs`, `cloudkit:prepare`,
+   `eas-build-pre-install`, and corresponding CI preparation/submodule-checkout
+   steps where no longer needed. Preserve any unrelated duties of shared hooks
+   or checkout steps. No replacement library build/download hook is needed.
+4. Remove vendor-specific lint and TypeScript exclusions made unnecessary by
+   removing this source checkout; preserve unrelated exclusions.
+5. Re-evaluate source-link autolinking workarounds, including
+   `experiments.autolinkingModuleResolution` and `expo.autolinking.include`,
+   against the installed package. Remove them only after proving they are
+   unnecessary for the app's other dependencies and that singleton resolution
+   remains correct.
+6. Keep the plugin name `expo-cloudkit`, transport import, MainteNote's real
+   container/environment configuration, thin adapter, SQLite authority,
+   application sync responsibilities and app-specific signed-IPA verification.
+   Do not move or redesign its diagnostic harness.
+7. Verify a clean locked install without the vendor checkout/preparation script,
+   Expo config/plugin evaluation and entitlements, Apple autolinking, types/lint,
+   iOS export with no legacy transport dependency graph or duplicate runtimes,
+   and the app's native build path. Rebuild for native changes and retain
+   signed-device CloudKit verification; unsigned packaging checks do not prove
+   CloudKit account/server access.
+
+## Application plugin configuration
 
 Configure the app's plugin with caller-owned identifiers:
 
@@ -220,19 +320,24 @@ Source audit covered this checkout and the published `expo-cloudkit@0.20.8` tarb
 | 6. Partial outcomes/errors | Existing throwing batches lose acknowledgements | Structured per-item receipts, commit uncertainty, native diagnostics | JS cancellation receipt regressions; signed partial-error/reconciliation gate |
 | 7. Durable assets | Existing converter exposes temp URL | Dedicated staging codec, same-record owner/version metadata, preserved uploads | Native copy/cancellation regressions; signed callback/restart/disk-pressure gate |
 | 8. Cancellation/teardown | Independent registry required | Reserved IDs, CKOperation.cancel, exactly-once state fence | JS lifecycle regressions; native lifecycle tests; timing/account gates |
-| 9. Config/distribution | Existing compiled plugin/build reused and extended | Entitlement merge, manual opt-out, prepack, root podspec path | Real plugin introspection, installed tarball and autolinking checked; macOS CI native gate |
+| 9. Config/distribution | Existing compiled plugin/build reused and extended | Entitlement merge, manual opt-out, prepack, root podspec path; release artifact verification | Historical installed-tarball/native checks passed below; new outside-checkout release consumer and native results require separate evidence |
 
-Local verification exercised the compiled packed entry without loading React/native/high-level modules; root build and lint passed, all 281 existing/new JS tests passed, and the example typechecked. Packed Apple autolinking resolved `ExpoCloudKit` and both module classes; real plugin introspection produced Development/CloudKit/container entitlements and no background modes. Exact installed baseline: Expo57.0.12, RN0.86.2, React19.2.3. Native patch versions are recorded by lockfiles and the example README.
+Historical local transport verification (before this release-packaging change) exercised the compiled packed entry without loading React/native/high-level modules; root build and lint passed, all 281 existing/new JS tests passed, and the example typechecked. Packed Apple autolinking resolved `ExpoCloudKit` and both module classes; real plugin introspection produced Development/CloudKit/container entitlements and no background modes. Exact installed baseline: Expo57.0.12, RN0.86.2, React19.2.3. Native patch versions are recorded by lockfiles and the example README.
 
 Expo's online `expo install --check` currently recommends newer rolling SDK57/RN/TypeScript patches. CI uses `EXPO_OFFLINE=1` for the pinned SDK57.0.12 bundled map, whose RN requirement is0.86.2, rather than silently upgrading the requested baseline. This does not establish native compatibility; the macOS build/tests do that independently.
 
-GitHub workflow `.github/workflows/transport.yml` is invoked by ordinary CI and by the feature branch. It installs the tarball into the exact example, runs all JS tests, autolinking/prebuild/CocoaPods, the native XCTest suite and a Release-app UI smoke which calls real module create/validation/dispose methods. It uses a standard public macOS runner, no signing secrets, paid build or publication. Raw Xcode logs/results and the tarball are uploaded as evidence. Consult the actual run conclusion; adding the workflow alone is not a passed gate.
+GitHub workflow `.github/workflows/transport.yml` is shared by ordinary CI, the feature branch and release validation. It verifies an outside-checkout consumer of the tarball, then runs autolinking/prebuild/CocoaPods, the installed package's native XCTest suite and a Release-app UI smoke which calls real module create/validation/dispose methods. Source/PR runs pack their own artifact; release validation consumes the already packed `release-package` artifact without repacking. It uses a standard public macOS runner, no signing secrets or paid build. Raw Xcode logs/results are retained as evidence. Consult the actual run conclusion; adding the workflow alone is not a passed gate.
 
 Simulator CI enables local ad-hoc signing (`CODE_SIGN_IDENTITY=-`) so the plugin-generated CloudKit entitlements remain present. CloudKit requires those entitlements even when constructing a container before any network operation. This uses no developer signing credentials and does not provision or authorize a real CloudKit container.
 
-It then replaces the tarball with a verified direct `file:..` source link, reruns Apple autolinking/CocoaPods, rebuilds, and repeats the real native module UI smoke. This exercises the source-in-workspace layout used by a submodule checkout without introducing a submodule into this library repository.
+Source/PR runs additionally exercise the direct `file:..` source-linked example, rerun Apple autolinking/CocoaPods, rebuild, and repeat the real native module UI smoke. This remains a source-development regression route without introducing a submodule into this library repository. Release validation uses the installed tarball rather than this source-link route.
 
-**Passed native evidence, 2026-09-10:** [GitHub run 34455535763](https://github.com/ivanjx/expo-cloudkit/actions/runs/34455535763) verified implementation commit `9e438311c7de26d0d47c722b2f1964990c37ea26` on Xcode26.4.1 / iPhone17 simulator / iOS26.4.1. All 281 JS tests and 145 native XCTest cases passed, including eight transport codec and three native lifecycle cases. Both the installed-tarball and source-linked Release apps passed real module creation/validation/teardown and native file-digest UI smoke. The run includes packed artifacts and raw Xcode results. Automated portions of gates1 and12 below are complete; physical-device provisioning and real CloudKit server scenarios are not.
+**Passed native evidence, 2026-09-10:** [GitHub run 34455535763](https://github.com/ivanjx/expo-cloudkit/actions/runs/34455535763) verified implementation commit `9e438311c7de26d0d47c722b2f1964990c37ea26` on Xcode26.4.1 / iPhone17 simulator / iOS26.4.1. All 281 JS tests and 145 native XCTest cases passed, including eight transport codec and three native lifecycle cases. Both the installed-tarball and source-linked Release apps passed real module creation/validation/teardown and native file-digest UI smoke. The run includes packed artifacts and raw Xcode results. It completed the then-current automated transport checks; physical-device provisioning and real CloudKit server scenarios are not proven.
+
+That run is historical transport evidence, not a run of the new outside-checkout
+consumer or GitHub Release workflow. New release-packaging checks must be
+executed and their actual results recorded separately; this documentation does
+not claim they or the proposed release's macOS native build have passed.
 
 ## Required signed-device gates (not production-ready)
 
@@ -249,7 +354,7 @@ Use the lab's generated `TransportVerification-...` zones, a disposable app/cont
 9. **Durable download:** copy returns same-version ownership and byte count; delete temporary/original source where safe, force-quit/restart and read staged bytes; verify cleanup does not remove caller upload sources.
 10. **Cancellation/account lifecycle:** cancel before submit, during request, mid-copy with native instrumentation, and after server callback before application acknowledgement; repeated teardown and account switch fence stale work; unknown writes reconcile by IDs.
 11. **Missing/deleted zone:** remove only the disposable zone using Dashboard; reads return typed failure and never recreate; explicit application policy decides reset.
-12. **Distribution/config:** clean tarball install plus source-submodule build, native autolinking and Development/Production plugin generation with pre-existing entitlements; no unwanted background requirements.
+12. **Distribution/config:** clean outside-checkout release-tarball install, native autolinking and Development/Production plugin generation with pre-existing entitlements; no unwanted background requirements. Source-linked development remains a separate regression route, not a consumer prerequisite.
 
 Additional destructive-service conditions (quota exhaustion, token expiration, disk exhaustion) require deliberate disposable environment setup; do not claim them tested from mocks or merely observing a typed switch case. Signed CloudKit server gates remain unexecuted until the observations are recorded. Application integration behind an adapter is a separate task: this fork does not install application dependencies or implement domain/SQLite/synchronization logic.
 

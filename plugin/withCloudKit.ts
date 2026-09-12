@@ -27,7 +27,7 @@ import {
   createRunOncePlugin,
   withEntitlementsPlist,
   withInfoPlist,
-} from '@expo/config-plugins';
+} from 'expo/config-plugins';
 
 // ---------------------------------------------------------------------------
 // Plugin options

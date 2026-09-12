@@ -12,30 +12,69 @@ A signed physical iPhone, an iCloud account, an Apple Developer team, and a prov
 
 ## Reproducible source and packed installation
 
-From the repository root:
+The proposed public release `v0.21.0-fork.0` is **UNPUBLISHED**. The expected
+tarball is
+https://github.com/ivanjx/expo-cloudkit/releases/download/v0.21.0-fork.0/expo-cloudkit-0.21.0-fork.0.tgz
+and its checksum is
+https://github.com/ivanjx/expo-cloudkit/releases/download/v0.21.0-fork.0/expo-cloudkit-0.21.0-fork.0.tgz.sha256.
+Do not install these URLs until the public assets exist and are verified.
+After publication, consumers use:
+
+```sh
+npx expo install "https://github.com/ivanjx/expo-cloudkit/releases/download/v0.21.0-fork.0/expo-cloudkit-0.21.0-fork.0.tgz"
+```
+
+Commit the resulting exact URL and npm lockfile integrity. No source submodule,
+library development dependencies or preparation hook is required. Public assets
+need no credentials and must remain available and unchanged; changed bytes need
+a new version, not replacement or a moving `latest` URL. See the
+[maintainer procedure and MainteNote handoff](../docs/TRANSPORT.md#maintainer-release-procedure).
+
+For local release acceptance, first set the environment variables in the next
+section, then from the repository root on macOS/Linux:
 
 ```sh
 npm ci
-npm run build
-npm test -- --runInBand src/__tests__/transport.test.ts src/__tests__/transport-plugin.test.ts
-npm pack
+node .github/scripts/pack-release.mjs "$PWD/release-package"
+node .github/scripts/verify-package.mjs "$PWD/release-package/expo-cloudkit-0.21.0-fork.0.tgz" /tmp/cloudkit-packed-consumer
 ```
 
-`npm pack` invokes `prepack`, which builds JS, declarations, and the config plugin. The archive is `expo-cloudkit-0.21.0-fork.0.tgz`. Its allowlist includes compiled `build/`, `transport.js`, `transport.d.ts`, Swift/Objective-C native sources, the podspec, Expo module metadata, and `app.plugin.js`. No exports map was added, so legacy subpath resolution remains available.
+Use a new or empty packaging output directory: the helper refuses to replace files.
+The consumer path must be new, absolute and outside the checkout. On Windows,
+pass equivalent absolute paths outside the checkout for the consumer. The
+filename above is expected for the current version; the authoritative filename
+is returned by `npm pack --json` and recorded in `release.json`.
 
-In `example-transport`:
+The packaging helper invokes `npm pack` once, whose `prepack` builds JS,
+declarations and the config plugin. Do not run a redundant build before it.
+Outputs are the tarball, its `.sha256` file and `release.json` recording the
+actual filename, version, tag, source commit and SHA-256. No checksum or final
+release source commit is asserted in these instructions.
 
-```sh
-npm ci
-npm install --no-save --package-lock=false --ignore-scripts ../expo-cloudkit-0.21.0-fork.0.tgz
-npm run typecheck
-```
+The verifier copies this lab's app/config and pinned lock into the external
+consumer, substitutes only the local tarball dependency without updating other
+dependencies, and runs `npm ci --ignore-scripts`. It verifies transport declarations/types,
+installed config-plugin entitlements, Apple autolinking, and an iOS export graph
+without the legacy high-level entry or duplicate React/React Native/Expo copies.
+It leaves the consumer in place for native verification. It does not prebuild;
+run prebuild/CocoaPods and the native steps below **in that external consumer**.
+The test helper accepts `CLOUDKIT_CONSUMER_DIR` for this path and uses the installed
+package's `ios/Tests`; its default remains this checked-in example. Delete only
+the dedicated generated consumer/package output after retaining needed evidence.
 
-The checked-in dependency is `file:..` for source development. The explicit tarball command replaces that local link for the package acceptance gate without rewriting the source-development manifest or lock. Do not run `npm ci` after that replacement until you intend to restore source development. Confirm `node_modules/expo-cloudkit` is the unpacked package, not a source link, and inspect its package version and compiled files.
+This is built JavaScript/plugin distribution, not a precompiled Swift binary or
+offline installation. Native code still compiles during the app's iOS build,
+and npm/CocoaPods dependencies still require network access unless cached.
+Native changes require a new app binary.
 
-For an intentionally managed source submodule in another application's workspace, first run `npm ci && npm run build` inside the submodule, then install `file:../vendor/expo-cloudkit` (adjust to the app's actual relative path), and regenerate/reinstall native pods in that app. Do not depend on an implicit Git lifecycle build. This repository does not add a submodule. For distribution, prefer the exact versioned tarball.
-
-The example explicitly enables Expo's autolinking module resolver and includes `react` in singleton resolution. Keep those settings when consuming a source checkout with its own development dependencies: a `file:` link is not automatically a workspace, and otherwise Metro can bundle duplicate React/React Native/Expo runtimes. See the configuration in `app.config.js` and `expo.autolinking` in `package.json`.
+For source development only, the checked-in dependency remains `file:..`.
+Run `npm ci` and `npm run build` in the library root, then `npm ci` in this
+directory. The example enables Expo's autolinking module resolver and includes
+`react` in singleton resolution because a source checkout with its own
+development dependencies is not automatically a workspace. Keep those settings
+for source-linked verification; packaged consumers should re-evaluate them
+before removal rather than assume they remain necessary. See `app.config.js`
+and `expo.autolinking` in `package.json`.
 
 ## Configuration, autolinking, and native build
 
@@ -51,7 +90,7 @@ PowerShell equivalents are `$env:CLOUDKIT_CONTAINER_ID = '...'`, `$env:CLOUDKIT_
 
 The app config deliberately rejects missing identifiers. Nothing defaults to the application's real CloudKit container. `CLOUDKIT_ENVIRONMENT` accepts `Development` or `Production`; changing environment/container requires rebuilding and reprovisioning the binary. Development is appropriate for the disposable lab. The plugin opts out of remote-notification background mode and preserves other app capabilities.
 
-On macOS, from this directory after packed installation:
+On macOS, from the external consumer after packed verification (or this directory for intentional source development):
 
 ```sh
 npx expo-modules-autolinking resolve --platform apple
@@ -97,4 +136,10 @@ Downloads are in the native transport's durable staging directory; notebook entr
 
 Dependency installation, exact installed-version inspection, tarball/source autolinking, and Hermes bundling were exercised on Windows. Source bundling uses a single React/React Native/Expo Modules Core runtime after explicit Expo resolver configuration. Native compilation and simulator UI are exercised by GitHub macOS CI; consult its actual run conclusion. Real iCloud account transitions, conflicts, asset preservation, restart durability, and callback/copy cancellation still require the signed-device procedure. TypeScript tests and the ad-hoc-signed simulator smoke do not establish those server semantics or production readiness.
 
-[GitHub run 34455535763 passed](https://github.com/ivanjx/expo-cloudkit/actions/runs/34455535763) for implementation commit `9e43831`: 281 JS tests, 145 native XCTest cases, and both tarball/source-linked Release-app UI smokes on Xcode26.4.1 and iPhone17 / iOS26.4.1 simulator. The native file-digest smoke passed as well. This completes the automated compilation, loading and distribution portions of the procedure, not the signed-account/server observations.
+**Historical transport evidence, 2026-09-10:** [GitHub run 34455535763 passed](https://github.com/ivanjx/expo-cloudkit/actions/runs/34455535763) for implementation commit `9e43831`: 281 JS tests, 145 native XCTest cases, and both tarball/source-linked Release-app UI smokes on Xcode26.4.1 and iPhone17 / iOS26.4.1 simulator. The native file-digest smoke passed as well. This completed the then-current automated compilation, loading and distribution checks, not signed-account/server observations.
+
+That run predates the new outside-checkout consumer/release workflow and does
+not prove the proposed release revision. These instructions configure new
+checks; their actual local/CI outcomes must be recorded separately before
+release. A configured macOS job is not a passing build, and neither simulator
+packaging verification nor ad-hoc signing establishes real CloudKit access.

@@ -1,4 +1,4 @@
-name: Publish
+name: GitHub Release
 
 on:
   push:
@@ -8,227 +8,102 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
-  validate:
-    name: Typecheck / Lint / Test
+  package:
+    name: Validate tagged source and pack once
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
 
       - uses: actions/setup-node@v5
         with:
-          node-version: '22'
-          cache: 'npm'
+          node-version: '22.13.1'
+          cache: npm
 
-      - name: Install dependencies
-        run: npm ci --legacy-peer-deps
+      - name: Verify release tag
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const { version } = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          if (process.env.GITHUB_REF_TYPE !== 'tag' || process.env.GITHUB_REF_NAME !== `v${version}`) {
+            throw new Error(`Release tag must exactly match v${version}`);
+          }
+          NODE
 
-      - name: Typecheck
-        run: npm run typecheck
+      - name: Install locked dependencies and validate
+        run: |
+          npm ci
+          npm run typecheck
+          npm run lint
+          npm test -- --runInBand
 
-      - name: Lint
-        run: npm run lint
+      - name: Build through npm pack lifecycle
+        run: node .github/scripts/pack-release.mjs "$RUNNER_TEMP/release-package"
 
-      - name: Test
-        run: npm test -- --ci
-
-      - name: Build
-        run: npm run build
-
-  swift-tests:
-    name: Swift XCTest (iOS Simulator)
-    runs-on: macos-15
-    continue-on-error: false
-    steps:
-      - uses: actions/checkout@v5
-
-      - uses: actions/setup-node@v5
+      - uses: actions/upload-artifact@v4
         with:
-          node-version: '22'
+          name: release-package
+          path: ${{ runner.temp }}/release-package/
+          if-no-files-found: error
 
-      - name: Install root dependencies and build plugin
-        run: npm ci && npm run build
+  native:
+    name: Validate the release tarball in a clean native consumer
+    needs: package
+    uses: ./.github/workflows/transport.yml
+    with:
+      package-artifact: release-package
 
-      - name: Install example dependencies
-        working-directory: example
-        run: npm install --legacy-peer-deps
-
-      - name: Prebuild Expo project (generate ios/)
-        working-directory: example
-        run: npx expo prebuild --platform ios --no-install
-
-      - name: Inject Swift test sources into Xcode test target
-        run: |
-          gem install xcodeproj --no-document --quiet
-          ruby - <<'RUBY'
-          require 'xcodeproj'
-
-          PROJECT_PATH = 'example/ios/ExpoCloudKitExample.xcodeproj'
-          TESTS_DIR = File.expand_path('ios/Tests')
-
-          project = Xcodeproj::Project.open(PROJECT_PATH)
-
-          puts "Available targets: #{project.targets.map(&:name).join(', ')}"
-
-          test_target = project.targets.find { |t| t.name.end_with?('Tests') && t.test_target_type? rescue false }
-          test_target ||= project.targets.find { |t| t.name.end_with?('Tests') }
-
-          created_new_target = false
-          if test_target.nil?
-            puts "No test target found — creating ExpoCloudKitCITests"
-            app_target = project.targets.find { |t| !t.name.end_with?('Tests') }
-            test_target = project.new_target(:unit_test_bundle, 'ExpoCloudKitCITests', :ios, '16.0')
-            test_target.add_dependency(app_target) if app_target
-            app_name = app_target ? app_target.name : 'ExpoCloudKitExample'
-            test_target.build_configurations.each do |config|
-              config.build_settings['SWIFT_VERSION'] = '5.0'
-              config.build_settings['GENERATE_INFOPLIST_FILE'] = 'YES'
-              config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
-              config.build_settings['PRODUCT_NAME'] = 'ExpoCloudKitCITests'
-              config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.expo.ExpoCloudKitCITests'
-              config.build_settings['TEST_HOST'] = "$(BUILT_PRODUCTS_DIR)/#{app_name}.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/#{app_name}"
-              config.build_settings['BUNDLE_LOADER'] = '$(TEST_HOST)'
-            end
-            created_new_target = true
-          else
-            puts "Using test target: #{test_target.name}"
-          end
-
-          File.write('/tmp/swift_test_target', test_target.name)
-
-          if created_new_target
-            scheme_dir = Xcodeproj::XCScheme.shared_data_dir(PROJECT_PATH)
-            scheme_file = File.join(scheme_dir, 'ExpoCloudKitExample.xcscheme')
-            if File.exist?(scheme_file)
-              require 'rexml/document'
-              doc = REXML::Document.new(File.read(scheme_file))
-              testables = doc.elements['//TestAction/Testables']
-              if testables
-                ref = REXML::Element.new('TestableReference')
-                ref.attributes['skipped'] = 'NO'
-                br = REXML::Element.new('BuildableReference')
-                br.attributes['BuildableIdentifier'] = 'primary'
-                br.attributes['BlueprintIdentifier'] = test_target.uuid
-                br.attributes['BuildableName'] = "ExpoCloudKitCITests.xctest"
-                br.attributes['BlueprintName'] = test_target.name
-                br.attributes['ReferencedContainer'] = "container:#{File.basename(PROJECT_PATH)}"
-                ref.add_element(br)
-                testables.add_element(ref)
-                File.write(scheme_file, doc.to_s)
-                puts "Added #{test_target.name} to scheme Test action"
-              end
-            end
-          end
-
-          group = project.main_group.find_subpath(test_target.name, true)
-          group.set_path(TESTS_DIR)
-
-          swift_files = Dir.glob(File.join(TESTS_DIR, '*.swift'))
-          raise 'No Swift files found in ios/Tests/' if swift_files.empty?
-
-          swift_files.each do |file_path|
-            file_ref = group.new_file(file_path)
-            test_target.source_build_phase.add_file_reference(file_ref)
-            puts "Added: #{File.basename(file_path)}"
-          end
-
-          project.save
-          puts "Saved #{PROJECT_PATH} — test target: #{test_target.name}"
-          RUBY
-
-      - name: Patch Podfile for testability
-        working-directory: example/ios
-        run: |
-          ruby - <<'RUBY'
-          content = File.read('Podfile')
-
-          test_target_block = <<~PODFILE_BLOCK
-
-          target 'ExpoCloudKitCITests' do
-            inherit! :search_paths
-          end
-          PODFILE_BLOCK
-
-          if content.include?('post_install do |installer|')
-            content.sub!("post_install do |installer|", "#{test_target_block}\npost_install do |installer|")
-          else
-            content += test_target_block
-          end
-
-          inject = "  installer.pods_project.targets.select { |t| t.name == 'ExpoCloudKit' }.each do |t|\n    t.build_configurations.each { |c| c.build_settings['ENABLE_TESTABILITY'] = 'YES' }\n  end\n"
-          content.sub!("post_install do |installer|\n", "post_install do |installer|\n#{inject}")
-
-          File.write('Podfile', content)
-          puts 'Patched Podfile: added ExpoCloudKitCITests target with pod ExpoCloudKit :path + ENABLE_TESTABILITY'
-          RUBY
-
-      - name: Cache CocoaPods downloads
-        uses: actions/cache@v5
-        with:
-          path: ~/.cocoapods
-          key: cocoapods-${{ runner.os }}-${{ hashFiles('example/ios/Podfile') }}
-          restore-keys: |
-            cocoapods-${{ runner.os }}-
-
-      - name: Install CocoaPods
-        working-directory: example/ios
-        run: pod install --repo-update
-
-      - name: Install xcpretty
-        run: gem install xcpretty --no-document --quiet
-
-      - name: Run Swift tests
-        working-directory: example/ios
-        run: |
-          set -o pipefail
-          TEST_TARGET=$(cat /tmp/swift_test_target 2>/dev/null || echo 'ExpoCloudKitExampleTests')
-          echo "Running test target: $TEST_TARGET"
-          xcodebuild test \
-            -workspace ExpoCloudKitExample.xcworkspace \
-            -scheme ExpoCloudKitExample \
-            -destination "platform=iOS Simulator,name=iPhone 16,OS=latest" \
-            -only-testing:"$TEST_TARGET" \
-            2>&1 | tee /tmp/xcodebuild.log | xcpretty --color
-          EXIT=${PIPESTATUS[0]}
-          if [ "$EXIT" -ne 0 ]; then
-            echo "--- xcodebuild failed (exit $EXIT) — last 100 lines of raw log ---"
-            tail -100 /tmp/xcodebuild.log
-            exit "$EXIT"
-          fi
-
-  publish:
-    name: Publish to npm
-    needs: [validate, swift-tests]
+  release:
+    name: Publish validated bytes to GitHub Release
+    needs: [package, native]
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      id-token: write
+      contents: write
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-package
+          path: ${{ runner.temp }}/release-package
 
       - uses: actions/setup-node@v5
         with:
-          node-version: '22'
-          cache: 'npm'
-          registry-url: 'https://registry.npmjs.org'
+          node-version: '22.13.1'
 
-      - name: Install dependencies
-        run: npm ci --legacy-peer-deps
-
-      - name: Verify tag matches package.json version
+      - name: Verify transferred bytes and release identity
+        id: package
+        working-directory: ${{ runner.temp }}/release-package
         run: |
-          TAG_VERSION="${GITHUB_REF_NAME#v}"
-          PKG_VERSION=$(node -p "require('./package.json').version")
-          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
-            echo "ERROR: Tag version ($TAG_VERSION) does not match package.json version ($PKG_VERSION)"
-            exit 1
-          fi
-          echo "Version verified: $PKG_VERSION"
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import crypto from 'node:crypto';
+          const manifest = JSON.parse(fs.readFileSync('release.json', 'utf8'));
+          const { filename, version, tag, sourceCommit, sha256 } = manifest;
+          if (typeof filename !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9._-]*\.tgz$/.test(filename)) throw new Error('Unsafe tarball filename');
+          if (process.env.GITHUB_REF_TYPE !== 'tag' || tag !== process.env.GITHUB_REF_NAME || tag !== `v${version}` || sourceCommit !== process.env.GITHUB_SHA) throw new Error('Release identity mismatch');
+          const actual = crypto.createHash('sha256').update(fs.readFileSync(filename)).digest('hex');
+          if (actual !== sha256 || fs.readFileSync(`${filename}.sha256`, 'utf8').trim() !== `${actual}  ${filename}`) throw new Error('Release checksum mismatch');
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `filename=${filename}\ntag=${tag}\nprerelease=${version.includes('-')}\n`);
+          NODE
 
-      - name: Build
-        run: npm run build
-
-      - name: Publish to npm
-        run: npm publish --access public --provenance
+      - name: Create immutable release with explicit assets
+        working-directory: ${{ runner.temp }}/release-package
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ steps.package.outputs.tag }}
+          RELEASE_FILENAME: ${{ steps.package.outputs.filename }}
+          RELEASE_PRERELEASE: ${{ steps.package.outputs.prerelease }}
+        run: |
+          args=()
+          if [ "$RELEASE_PRERELEASE" = true ]; then args+=(--prerelease); fi
+          # Creation fails if this release already exists; never replace published assets.
+          gh release create "$RELEASE_TAG" \
+            "$RELEASE_FILENAME" "$RELEASE_FILENAME.sha256" \
+            --verify-tag --title "$RELEASE_TAG" --generate-notes "${args[@]}"
