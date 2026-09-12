@@ -113,6 +113,18 @@ jobs:
           puts "CocoaPods compiles installed package sources: #{resolved}"
           RUBY
 
+      - name: Provision the pinned simulator destination
+        run: |
+          set -o pipefail
+          RUNTIME=com.apple.CoreSimulator.SimRuntime.iOS-26-4-1
+          if ! xcrun simctl list runtimes --json | jq -e --arg runtime "$RUNTIME" '.runtimes[] | select(.identifier == $runtime and .isAvailable)' > /dev/null; then
+            xcodebuild -downloadPlatform iOS -buildVersion 26.4.1
+          fi
+          SIMULATOR_ID=$(xcrun simctl create CloudKitTransportCI com.apple.CoreSimulator.SimDeviceType.iPhone-17 "$RUNTIME")
+          echo "SIMULATOR_ID=$SIMULATOR_ID" >> "$GITHUB_ENV"
+          xcrun simctl boot "$SIMULATOR_ID"
+          xcrun simctl bootstatus "$SIMULATOR_ID" -b
+
       - name: Compile packed native module and run simulator tests
         working-directory: ${{ env.CLOUDKIT_CONSUMER_DIR }}/ios
         run: |
@@ -122,7 +134,7 @@ jobs:
             -workspace "$SCHEME.xcworkspace" \
             -scheme "$SCHEME" \
             -configuration Release \
-            -destination 'platform=iOS Simulator,name=iPhone 17,OS=26.4.1' \
+            -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
             -resultBundlePath "$RUNNER_TEMP/Transport.xcresult" \
             -only-testing:TransportNativeTests \
             -only-testing:TransportModuleUITests \
@@ -160,7 +172,7 @@ jobs:
             -workspace "$SCHEME.xcworkspace" \
             -scheme "$SCHEME" \
             -configuration Release \
-            -destination 'platform=iOS Simulator,name=iPhone 17,OS=26.4.1' \
+            -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
             -resultBundlePath "$RUNNER_TEMP/TransportSource.xcresult" \
             -only-testing:TransportModuleUITests \
             CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- ENABLE_TESTABILITY=YES \
