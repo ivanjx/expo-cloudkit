@@ -106,7 +106,7 @@ jobs:
           ruby - <<'RUBY'
           require 'yaml'
           lock = YAML.load_file('Podfile.lock')
-          source = lock.fetch('EXTERNAL SOURCES').fetch('ExpoCloudKit').fetch(':path')
+          source = lock.fetch('EXTERNAL SOURCES').fetch('ExpoCloudKit').fetch(:path)
           installed = File.realpath(File.join(ENV.fetch('CLOUDKIT_CONSUMER_DIR'), 'node_modules/expo-cloudkit'))
           resolved = File.realpath(source)
           abort "CocoaPods resolved checkout or unexpected source: #{resolved}" unless resolved == installed
@@ -165,4 +165,11 @@ jobs:
             ${{ runner.temp }}/transport-xcodebuild.log
             ${{ runner.temp }}/TransportSource.xcresult
             ${{ runner.temp }}/transport-source-xcodebuild.log
+          if-no-files-found: warn
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() && inputs.package-artifact == '' }}
+        with:
+          name: release-package
+          path: ${{ runner.temp }}/release-package/
           if-no-files-found: warn
