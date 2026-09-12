@@ -133,9 +133,19 @@ jobs:
         if: ${{ inputs.package-artifact == '' }}
         working-directory: ${{ env.CLOUDKIT_CONSUMER_DIR }}
         run: |
-          npm install --install-links=false --no-save --package-lock=false "expo-cloudkit@file:$GITHUB_WORKSPACE"
-          npm pkg set 'expo.autolinking.include[0]=react'
-          node -e "const fs=require('fs'); if(!fs.lstatSync('node_modules/expo-cloudkit').isSymbolicLink() || fs.realpathSync('node_modules/expo-cloudkit')!==fs.realpathSync(process.env.GITHUB_WORKSPACE)) throw Error('Expected direct library-source link')"
+          # Change only the library layout; npm install would re-resolve unlocked
+          # fixture ranges and invalidate the already-installed native pod versions.
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const source = fs.realpathSync(process.env.GITHUB_WORKSPACE);
+          fs.rmSync('node_modules/expo-cloudkit', { recursive: true });
+          fs.symlinkSync(source, 'node_modules/expo-cloudkit', 'dir');
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          pkg.dependencies['expo-cloudkit'] = `file:${source}`;
+          pkg.expo = { autolinking: { include: ['react'] } };
+          fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+          if (fs.realpathSync('node_modules/expo-cloudkit') !== source) throw new Error('Expected direct library-source link');
+          NODE
           npx expo-modules-autolinking resolve --platform apple
 
       - name: Compile source-linked module and repeat real module loading
