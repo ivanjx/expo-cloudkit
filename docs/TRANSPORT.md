@@ -1,6 +1,6 @@
 # Caller-owned CloudKit transport
 
-This unpublished fork (`0.21.0-fork.0`) supplies native transport capabilities, not an application synchronization engine. Import **`expo-cloudkit/transport`**, not the legacy `configure`/sync/queue APIs. The standalone entry is lazy; importing it does not acquire a native module, subscribe to account events, or start any service.
+This fork (`0.21.0-fork.0`) supplies native transport capabilities, not an application synchronization engine. Import **`expo-cloudkit/transport`**, not the legacy `configure`/sync/queue APIs. The standalone entry is lazy; importing it does not acquire a native module, subscribe to account events, or start any service.
 
 **SQLite remains application-authoritative.** The library never opens it. Domain mapping, validation, revisions, tombstones, conflict decisions, retries, durable inbox/outbox, acknowledgement transactions, file leases and lifecycle scheduling remain application-owned. No CKSyncEngine, polling, network monitor, push subscription, automatic zone recreation, conflict merge, offline journal or checkpoint persistence is activated by the transport.
 
@@ -163,10 +163,9 @@ For batches/pages, cancellation returns accumulated successes and explicit failu
 
 ## Built release installation
 
-The distribution target is a public, immutable GitHub Release tarball from
-`ivanjx/expo-cloudkit`, not the upstream npm package. **UNPUBLISHED:**
-the proposed tag `v0.21.0-fork.0` has no release assets yet. These are the exact
-expected coordinates, not available dependencies:
+Distribution uses a public, immutable GitHub Release tarball from
+`ivanjx/expo-cloudkit`, not the upstream npm package. The version-specific
+coordinates for `v0.21.0-fork.0` are:
 
 - Tarball: https://github.com/ivanjx/expo-cloudkit/releases/download/v0.21.0-fork.0/expo-cloudkit-0.21.0-fork.0.tgz
 - SHA-256 file: https://github.com/ivanjx/expo-cloudkit/releases/download/v0.21.0-fork.0/expo-cloudkit-0.21.0-fork.0.tgz.sha256
@@ -210,18 +209,18 @@ in [the device lab](../example-transport/README.md).
 
 ## Maintainer release procedure
 
-No release tag or public release publication is authorized by preparing this change. The version
-remains `0.21.0-fork.0`. The eventual release must come from the reviewed
-`feature/github-release-tarballs` work containing the caller-owned transport,
-whose base is `60972b13aac670a8f4d1d1dd1cce1c29877e8660`; do not release an
-unrelated `main` revision without that implementation. This base is not a claim
-about the final release source commit.
+Release from a clean, reviewed `main` commit containing the caller-owned
+transport and packaging workflow. These were merged in
+`a4a46f207486f39e4b8f70f5f56d052d12567c3e` with
+[passing post-merge CI](https://github.com/ivanjx/expo-cloudkit/actions/runs/34735488404).
+The release tag must match the package version; never retag or replace an
+existing release.
 
 1. Review the complete release change and finish the applicable CI gates,
    including the outside-checkout packed consumer and macOS native build.
-   Commit the reviewed source and documentation on the feature branch.
-   Record its actual commit, package version and build checksum from the
-   packaging output; none is fabricated in this document.
+   Commit source and release documentation on a feature branch and merge its PR
+   into `main`. Record the actual release commit, package version and checksum
+   from the release workflow's packaging output.
 2. For local packaging, run `npm ci`, then
    `node .github/scripts/pack-release.mjs <output-directory>`.
    The helper requires a new or empty output directory, invokes `npm pack --json` exactly
@@ -232,15 +231,14 @@ about the final release source commit.
 3. Run the [clean-consumer procedure](../example-transport/README.md#reproducible-source-and-packed-installation)
    against those actual bytes. Packaging alone is not proof of a native build,
    and historical CI is not a passing result for the new release revision.
-4. **Only with separate publication authorization**, from that clean, reviewed
-   transport-containing feature-branch commit, create and push the exact tag:
+4. With publication authorization, from the clean, reviewed `main` commit,
+   create and push the exact tag:
 
    ```sh
    git tag -a v0.21.0-fork.0 -m "Release v0.21.0-fork.0"
    git push origin refs/tags/v0.21.0-fork.0
    ```
 
-   These are future publication commands, not actions performed by this task.
    The tag must equal `v` plus `package.json`'s version exactly.
 5. The [release workflow](https://github.com/ivanjx/expo-cloudkit/actions/workflows/publish.yml)
    checks out the tag, installs locked dependencies, validates and packs once.
@@ -256,13 +254,12 @@ about the final release source commit.
    Verify the downloaded checksum with `sha256sum -c <filename>.sha256`
    (or `shasum -a 256 -c <filename>.sha256` on macOS) from their directory.
    Record the actual source commit/checksum and release evidence, then hand off
-   the now-available coordinates. Do not treat this planned URL as published.
+   the now-available coordinates. A configured workflow alone is not publication.
 
 ## MainteNote migration handoff
 
-**Blocked on an actual published, verified release, not requested in this task.**
-Do not modify MainteNote or replace its dependency with an unpublished URL.
-Once both assets above are available, the app maintainer should:
+Before migrating, confirm both public assets above are available and verify
+their checksum. The app maintainer should:
 
 1. Run the exact `npx expo install` command above; commit the immutable tarball
    URL in `package.json` and the updated npm lockfile with resolved integrity.
