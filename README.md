@@ -1,7 +1,14 @@
 # expo-cloudkit
 
-[![npm version](https://img.shields.io/npm/v/expo-cloudkit)](https://www.npmjs.com/package/expo-cloudkit)
-[![CI](https://github.com/atlas-ledger/expo-cloudkit/actions/workflows/ci.yml/badge.svg)](https://github.com/atlas-ledger/expo-cloudkit/actions)
+> **Fork transport:** this checkout adds the caller-owned, foreground-only
+> `expo-cloudkit/transport` API for SQLite-first applications. It is distinct from
+> the legacy sync/queue APIs below. See the [transport API and application handoff](docs/TRANSPORT.md)
+> and [Expo 57 device lab](example-transport/README.md). Distribution uses built,
+> version-specific GitHub Release tarballs; the proposed `0.21.0-fork.0` release is **unpublished**.
+> Signed-device CloudKit gates must pass before production use.
+
+[![CI](https://github.com/ivanjx/expo-cloudkit/actions/workflows/ci.yml/badge.svg)](https://github.com/ivanjx/expo-cloudkit/actions/workflows/ci.yml)
+[![Transport CI](https://github.com/ivanjx/expo-cloudkit/actions/workflows/transport.yml/badge.svg)](https://github.com/ivanjx/expo-cloudkit/actions/workflows/transport.yml)
 [![MIT license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 CloudKit for Expo — save and sync records with iCloud, no Swift required.
@@ -46,6 +53,10 @@ expo-cloudkit is a TypeScript-first Expo native module wrapping Apple's CloudKit
 
 ## Quick Start
 
+This section documents the retained **legacy high-level API**. For caller-owned
+transport, use [`expo-cloudkit/transport`](docs/TRANSPORT.md) instead; do not
+initialize the legacy sync/queue API for that integration.
+
 ```typescript
 import { configure, getAccountStatus, saveRecords, fetchRecord } from 'expo-cloudkit';
 
@@ -73,9 +84,47 @@ See the [full quick-start snippet](example/snippets/quick-start.ts) for zones, q
 
 ## Installation
 
-```bash
-npx expo install expo-cloudkit
+The fork is distributed through **built GitHub Release tarballs**, not the upstream
+npm package. **UNPUBLISHED:** `v0.21.0-fork.0` and the URLs below are proposed
+coordinates, not currently available dependencies. Do not migrate an application
+to them until the release assets exist and have been verified.
+
+After publication:
+
+```sh
+npx expo install "https://github.com/ivanjx/expo-cloudkit/releases/download/v0.21.0-fork.0/expo-cloudkit-0.21.0-fork.0.tgz"
 ```
+
+Expected `package.json` dependency:
+
+```json
+{
+  "dependencies": {
+    "expo-cloudkit": "https://github.com/ivanjx/expo-cloudkit/releases/download/v0.21.0-fork.0/expo-cloudkit-0.21.0-fork.0.tgz"
+  }
+}
+```
+
+The expected checksum asset is
+[`expo-cloudkit-0.21.0-fork.0.tgz.sha256`](https://github.com/ivanjx/expo-cloudkit/releases/download/v0.21.0-fork.0/expo-cloudkit-0.21.0-fork.0.tgz.sha256)
+(**also unpublished**). Verify downloaded bytes against it; no checksum value is
+claimed here. Commit both the exact dependency URL and `package-lock.json`,
+including npm's resolved integrity, and use `npm ci` for reproducible installation.
+The public repository's release assets require no credentials.
+
+Keep the import `expo-cloudkit/transport` and config-plugin name `expo-cloudkit`.
+Consumers need no source submodule, library development dependencies, or
+`prepare`/`postinstall` build hook. The tarball supplies compiled JavaScript,
+declarations and the config plugin; Swift remains source compiled by the app's
+normal iOS native build. This is neither a precompiled native binary nor an
+offline installer: npm/CocoaPods dependency installation still needs network
+access unless independently cached, and native changes require a new app binary.
+
+Published assets must remain available and byte-for-byte unchanged. Changed bytes
+require a new package version and tag; never use a moving `latest`, branch,
+source-archive or expiring Actions-artifact URL as the app dependency.
+See [maintainer release steps and the MainteNote migration handoff](docs/TRANSPORT.md#maintainer-release-procedure)
+and the [clean-consumer verification procedure](example-transport/README.md#reproducible-source-and-packed-installation).
 
 **Peer dependencies:**
 
@@ -84,6 +133,7 @@ npx expo install expo-cloudkit
 | `expo` | SDK 51+ | Yes |
 | `expo-modules-core` | 1.12+ | Yes |
 | `react` | 18+ | Yes |
+| `react-native` | 0.74+ | Yes |
 | `tsl-apple-cloudkit` | any | Only for web platform support |
 
 Install the web peer dependency if you need web support:

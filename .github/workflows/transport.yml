@@ -1,0 +1,203 @@
+name: Caller-owned transport
+
+on:
+  push:
+    branches: ['feature/caller-owned-cloudkit-transport']
+  workflow_call:
+    inputs:
+      package-artifact:
+        description: Existing validated package artifact; empty packs the checked-out source
+        required: false
+        type: string
+        default: ''
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: transport-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  expo57-ios:
+    name: Packed Expo 57 / iOS Simulator
+    runs-on: macos-26
+    timeout-minutes: 60
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
+      CLOUDKIT_CONTAINER_ID: iCloud.com.example.transportci
+      CLOUDKIT_BUNDLE_ID: com.example.transportci
+      CLOUDKIT_ENVIRONMENT: Development
+      EXPO_PUBLIC_CI_SMOKE: '1'
+      CI: '1'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Select external consumer directory
+        run: echo "CLOUDKIT_CONSUMER_DIR=$RUNNER_TEMP/cloudkit-consumer" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22.13.1'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            example-transport/package-lock.json
+
+      - name: Validate source and pack once
+        if: ${{ inputs.package-artifact == '' }}
+        run: |
+          npm ci
+          npm run typecheck
+          npm run lint
+          npm test -- --runInBand
+          node .github/scripts/pack-release.mjs "$RUNNER_TEMP/release-package"
+
+      - name: Download the release candidate without rebuilding
+        if: ${{ inputs.package-artifact != '' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.package-artifact }}
+          path: ${{ runner.temp }}/release-package
+
+      - name: Verify package checksum and source identity
+        id: package
+        working-directory: ${{ runner.temp }}/release-package
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import crypto from 'node:crypto';
+          const { filename, version, tag, sourceCommit, sha256 } = JSON.parse(fs.readFileSync('release.json', 'utf8'));
+          if (typeof filename !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9._-]*\.tgz$/.test(filename)) throw new Error('Unsafe tarball filename');
+          if (sourceCommit !== process.env.GITHUB_SHA || tag !== `v${version}`) throw new Error('Package source identity mismatch');
+          if (process.env.GITHUB_REF_TYPE === 'tag' && tag !== process.env.GITHUB_REF_NAME) throw new Error('Release tag mismatch');
+          const actual = crypto.createHash('sha256').update(fs.readFileSync(filename)).digest('hex');
+          if (actual !== sha256 || fs.readFileSync(`${filename}.sha256`, 'utf8').trim() !== `${actual}  ${filename}`) throw new Error('Package checksum mismatch');
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `filename=${filename}\n`);
+          NODE
+
+      - name: Verify locked external consumer installation, config, types, autolinking and iOS export
+        env:
+          PACKAGE_FILENAME: ${{ steps.package.outputs.filename }}
+        run: node .github/scripts/verify-package.mjs "$RUNNER_TEMP/release-package/$PACKAGE_FILENAME" "$CLOUDKIT_CONSUMER_DIR"
+
+      - name: Typecheck installed native transport against Apple SDK
+        run: |
+          xcrun swiftc -typecheck -swift-version 5 -target arm64-apple-macosx13.0 \
+            "$CLOUDKIT_CONSUMER_DIR/node_modules/expo-cloudkit/ios/CloudKitTransport.swift" \
+            "$CLOUDKIT_CONSUMER_DIR/node_modules/expo-cloudkit/ios/CloudKitTransportCodec.swift"
+
+      - name: Prebuild the external consumer
+        working-directory: ${{ env.CLOUDKIT_CONSUMER_DIR }}
+        run: npx expo prebuild --platform ios --no-install
+
+      - name: Attach installed native regressions and module-loading UI test
+        run: ruby .github/scripts/prepare-transport-tests.rb
+
+      - name: Install CocoaPods and prove native sources resolve outside checkout
+        working-directory: ${{ env.CLOUDKIT_CONSUMER_DIR }}/ios
+        run: |
+          pod install
+          ruby "$GITHUB_WORKSPACE/.github/scripts/prepare-transport-tests.rb" --after-pods
+          ruby - <<'RUBY'
+          require 'yaml'
+          lock = YAML.load_file('Podfile.lock')
+          source = lock.fetch('EXTERNAL SOURCES').fetch('ExpoCloudKit').fetch(:path)
+          installed = File.realpath(File.join(ENV.fetch('CLOUDKIT_CONSUMER_DIR'), 'node_modules/expo-cloudkit'))
+          resolved = File.realpath(source)
+          abort "CocoaPods resolved checkout or unexpected source: #{resolved}" unless resolved == installed
+          puts "CocoaPods compiles installed package sources: #{resolved}"
+          RUBY
+
+      - name: Provision the pinned simulator destination
+        run: |
+          set -o pipefail
+          sudo xcode-select --switch "$DEVELOPER_DIR"
+          sudo xcodebuild -runFirstLaunch
+          runtime_filter='[.runtimes[] | select(.isAvailable and (.identifier | contains(".iOS-")) and (.version == "26.4" or (.version | startswith("26.4.")) ))][0].identifier // empty'
+          RUNTIME=$(xcrun simctl list runtimes --json | jq -r "$runtime_filter")
+          if [ -z "$RUNTIME" ]; then
+            xcodebuild -downloadPlatform iOS -buildVersion 26.4
+            RUNTIME=$(xcrun simctl list runtimes --json | jq -r "$runtime_filter")
+          fi
+          xcrun simctl list runtimes
+          test -n "$RUNTIME"
+          SIMULATOR_ID=$(xcrun simctl create CloudKitTransportCI com.apple.CoreSimulator.SimDeviceType.iPhone-17 "$RUNTIME")
+          echo "SIMULATOR_ID=$SIMULATOR_ID" >> "$GITHUB_ENV"
+          xcrun simctl boot "$SIMULATOR_ID"
+          xcrun simctl bootstatus "$SIMULATOR_ID" -b
+
+      - name: Compile packed native module and run simulator tests
+        working-directory: ${{ env.CLOUDKIT_CONSUMER_DIR }}/ios
+        run: |
+          set -o pipefail
+          SCHEME=$(cat transport-scheme.txt)
+          xcodebuild test \
+            -workspace "$SCHEME.xcworkspace" \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
+            -resultBundlePath "$RUNNER_TEMP/Transport.xcresult" \
+            -only-testing:TransportNativeTests \
+            -only-testing:TransportModuleUITests \
+            CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- ENABLE_TESTABILITY=YES \
+            2>&1 | tee "$RUNNER_TEMP/transport-xcodebuild.log" | xcbeautify
+
+      - name: Relink library source for submodule-style verification
+        if: ${{ inputs.package-artifact == '' }}
+        working-directory: ${{ env.CLOUDKIT_CONSUMER_DIR }}
+        run: |
+          # Change only the library layout; npm install would re-resolve unlocked
+          # fixture ranges and invalidate the already-installed native pod versions.
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const source = fs.realpathSync(process.env.GITHUB_WORKSPACE);
+          fs.rmSync('node_modules/expo-cloudkit', { recursive: true });
+          fs.symlinkSync(source, 'node_modules/expo-cloudkit', 'dir');
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          pkg.dependencies['expo-cloudkit'] = `file:${source}`;
+          pkg.expo = { autolinking: { include: ['react'] } };
+          fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+          if (fs.realpathSync('node_modules/expo-cloudkit') !== source) throw new Error('Expected direct library-source link');
+          NODE
+          npx expo-modules-autolinking resolve --platform apple
+
+      - name: Compile source-linked module and repeat real module loading
+        if: ${{ inputs.package-artifact == '' }}
+        working-directory: ${{ env.CLOUDKIT_CONSUMER_DIR }}/ios
+        run: |
+          set -o pipefail
+          pod install
+          ruby "$GITHUB_WORKSPACE/.github/scripts/prepare-transport-tests.rb" --after-pods
+          SCHEME=$(cat transport-scheme.txt)
+          xcodebuild test \
+            -workspace "$SCHEME.xcworkspace" \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
+            -resultBundlePath "$RUNNER_TEMP/TransportSource.xcresult" \
+            -only-testing:TransportModuleUITests \
+            CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- ENABLE_TESTABILITY=YES \
+            2>&1 | tee "$RUNNER_TEMP/transport-source-xcodebuild.log" | xcbeautify
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: transport-native-evidence
+          path: |
+            ${{ runner.temp }}/Transport.xcresult
+            ${{ runner.temp }}/transport-xcodebuild.log
+            ${{ runner.temp }}/TransportSource.xcresult
+            ${{ runner.temp }}/transport-source-xcodebuild.log
+          if-no-files-found: warn
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() && inputs.package-artifact == '' }}
+        with:
+          name: release-package
+          path: ${{ runner.temp }}/release-package/
+          if-no-files-found: warn

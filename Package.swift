@@ -11,7 +11,7 @@ import PackageDescription
 let package = Package(
     name: "ExpoCloudKit",
     platforms: [
-        .iOS(.v13)
+        .iOS(.v16)
     ],
     products: [
         .library(

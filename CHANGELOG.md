@@ -9,6 +9,32 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.21.0-fork.0] — 2026-09-10 (unpublished fork)
+
+### Added
+
+- Independent `expo-cloudkit/transport` entry and `ExpoCloudKitTransport` native module: explicit private/custom-zone sessions, opaque account bindings, generation fencing, removable account notifications, and idempotent teardown.
+- Caller-owned serializable/scoped change tokens, paginated changes with replay-safe partial failures, and bounded per-record targeted fetch results.
+- Conditional `.ifServerRecordUnchanged` saves reconstructed from system fields and explicit set/clear masks; correlation IDs, conflicts, partial acknowledgements, retry hints, native diagnostics, and uncertain-commit cancellation outcomes.
+- Separate durable asset staging with owner/version metadata, cancellation-aware copying, private partial-file cleanup, and caller-owned upload sources.
+- Expo 57.0.12 / RN 0.86.2 / React 19.2.3 native verification example, focused regressions, macOS CI, application handoff and signed-device gate procedure.
+- Built GitHub Release tarball distribution with SHA-256 checksums and source/version metadata; `prepack` compiles JS, declarations and plugin once through the packaging helper. The proposed `v0.21.0-fork.0` release remains unpublished.
+- Outside-checkout packed-consumer verification using the pinned Expo 57 fixture/lock, installed plugin entitlement checks, native autolinking, transport-only iOS export graph and macOS native verification workflow.
+- Exact immutable release installation instructions and a seven-step MainteNote migration handoff, conditional on actual asset availability; no source submodule or consumer library preparation hook is required.
+
+### Changed
+
+- Config plugin merges container entitlements and supports `enableRemoteNotifications: false` without removing intentional existing modes. Legacy default remains enabled.
+- Expo Apple metadata explicitly names the root podspec and both native modules for SDK 57 autolinking.
+- Native minimum iOS version is 16.0 (the Expo 57 example requires 16.4). Updated development dependency locks and legacy emitter instance typing for SDK 57.
+- Replaced the fork's npm-publication workflow with tag/version-checked GitHub Release creation using the same validated tarball/checksum, read-only validation jobs and write access only for release creation. Existing releases fail rather than overwrite assets.
+
+### Verification boundary
+
+- Historical transport evidence: [GitHub macOS verification passed](https://github.com/ivanjx/expo-cloudkit/actions/runs/34455535763) at `9e43831`: 281 JS tests, 145 native XCTest cases, and real simulator module/file-digest smoke for both installed tarball and source-linked layouts. This predates the new release-packaging workflow and is not proof that the proposed release revision passed its clean-consumer or native gates.
+- Real conflict, partial-record/asset preservation, account-switching, checkpoint expiry and signed-device cancellation gates remain required; ad-hoc-signed simulator checks are not CloudKit server compatibility evidence.
+- New packaging/native checks require separately recorded execution results. Documentation of configured checks is not a passing run; no release, tag push, final release source commit or checksum is claimed here.
+
 ---
 
 ## [0.20.8] — 2026-04-04

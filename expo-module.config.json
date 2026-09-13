@@ -1,7 +1,8 @@
 {
-  "platforms": ["ios"],
-  "ios": {
-    "modules": ["ExpoCloudKitModule"]
+  "platforms": ["apple"],
+  "apple": {
+    "podspecPath": "ExpoCloudKit.podspec",
+    "modules": ["ExpoCloudKitModule", "ExpoCloudKitTransportModule"]
   },
   "plugin": "build/plugin/withCloudKit"
 }
