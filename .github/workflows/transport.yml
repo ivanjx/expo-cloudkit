@@ -116,10 +116,16 @@ jobs:
       - name: Provision the pinned simulator destination
         run: |
           set -o pipefail
-          RUNTIME=com.apple.CoreSimulator.SimRuntime.iOS-26-4-1
-          if ! xcrun simctl list runtimes --json | jq -e --arg runtime "$RUNTIME" '.runtimes[] | select(.identifier == $runtime and .isAvailable)' > /dev/null; then
-            xcodebuild -downloadPlatform iOS -buildVersion 26.4.1
+          sudo xcode-select --switch "$DEVELOPER_DIR"
+          sudo xcodebuild -runFirstLaunch
+          runtime_filter='[.runtimes[] | select(.isAvailable and (.identifier | contains(".iOS-")) and (.version == "26.4" or (.version | startswith("26.4.")) ))][0].identifier // empty'
+          RUNTIME=$(xcrun simctl list runtimes --json | jq -r "$runtime_filter")
+          if [ -z "$RUNTIME" ]; then
+            xcodebuild -downloadPlatform iOS -buildVersion 26.4
+            RUNTIME=$(xcrun simctl list runtimes --json | jq -r "$runtime_filter")
           fi
+          xcrun simctl list runtimes
+          test -n "$RUNTIME"
           SIMULATOR_ID=$(xcrun simctl create CloudKitTransportCI com.apple.CoreSimulator.SimDeviceType.iPhone-17 "$RUNTIME")
           echo "SIMULATOR_ID=$SIMULATOR_ID" >> "$GITHUB_ENV"
           xcrun simctl boot "$SIMULATOR_ID"
