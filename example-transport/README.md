@@ -12,13 +12,12 @@ A signed physical iPhone, an iCloud account, an Apple Developer team, and a prov
 
 ## Reproducible source and packed installation
 
-The proposed public release `v0.21.0-fork.0` is **UNPUBLISHED**. The expected
-tarball is
+The version-specific release `v0.21.0-fork.0` uses the tarball
 https://github.com/ivanjx/expo-cloudkit/releases/download/v0.21.0-fork.0/expo-cloudkit-0.21.0-fork.0.tgz
 and its checksum is
 https://github.com/ivanjx/expo-cloudkit/releases/download/v0.21.0-fork.0/expo-cloudkit-0.21.0-fork.0.tgz.sha256.
-Do not install these URLs until the public assets exist and are verified.
-After publication, consumers use:
+Confirm both public assets are available and verify the checksum before
+installing. Consumers use:
 
 ```sh
 npx expo install "https://github.com/ivanjx/expo-cloudkit/releases/download/v0.21.0-fork.0/expo-cloudkit-0.21.0-fork.0.tgz"

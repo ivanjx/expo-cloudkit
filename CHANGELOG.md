@@ -9,7 +9,7 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-## [0.21.0-fork.0] — 2026-09-10 (unpublished fork)
+## [0.21.0-fork.0] — 2026-09-13
 
 ### Added
 
@@ -18,7 +18,7 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 - Conditional `.ifServerRecordUnchanged` saves reconstructed from system fields and explicit set/clear masks; correlation IDs, conflicts, partial acknowledgements, retry hints, native diagnostics, and uncertain-commit cancellation outcomes.
 - Separate durable asset staging with owner/version metadata, cancellation-aware copying, private partial-file cleanup, and caller-owned upload sources.
 - Expo 57.0.12 / RN 0.86.2 / React 19.2.3 native verification example, focused regressions, macOS CI, application handoff and signed-device gate procedure.
-- Built GitHub Release tarball distribution with SHA-256 checksums and source/version metadata; `prepack` compiles JS, declarations and plugin once through the packaging helper. The proposed `v0.21.0-fork.0` release remains unpublished.
+- Built GitHub Release tarball distribution with SHA-256 checksums and source/version metadata; `prepack` compiles JS, declarations and plugin once through the packaging helper.
 - Outside-checkout packed-consumer verification using the pinned Expo 57 fixture/lock, installed plugin entitlement checks, native autolinking, transport-only iOS export graph and macOS native verification workflow.
 - Exact immutable release installation instructions and a seven-step MainteNote migration handoff, conditional on actual asset availability; no source submodule or consumer library preparation hook is required.
 
@@ -31,9 +31,9 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ### Verification boundary
 
-- Historical transport evidence: [GitHub macOS verification passed](https://github.com/ivanjx/expo-cloudkit/actions/runs/34455535763) at `9e43831`: 281 JS tests, 145 native XCTest cases, and real simulator module/file-digest smoke for both installed tarball and source-linked layouts. This predates the new release-packaging workflow and is not proof that the proposed release revision passed its clean-consumer or native gates.
+- [Merged transport and packaging CI passed](https://github.com/ivanjx/expo-cloudkit/actions/runs/34735488404) at `a4a46f207486f39e4b8f70f5f56d052d12567c3e`, covering the outside-checkout packed consumer and macOS native verification. The preceding [PR run](https://github.com/ivanjx/expo-cloudkit/actions/runs/34734447402) passed 281 JS tests, 145 native XCTest cases, and packed/source-linked simulator module smoke.
 - Real conflict, partial-record/asset preservation, account-switching, checkpoint expiry and signed-device cancellation gates remain required; ad-hoc-signed simulator checks are not CloudKit server compatibility evidence.
-- New packaging/native checks require separately recorded execution results. Documentation of configured checks is not a passing run; no release, tag push, final release source commit or checksum is claimed here.
+- The tag-triggered [release workflow](https://github.com/ivanjx/expo-cloudkit/actions/workflows/publish.yml) validates the exact release tarball before uploading it. Consult the [versioned release](https://github.com/ivanjx/expo-cloudkit/releases/tag/v0.21.0-fork.0) for the public assets and authoritative checksum.
 
 ---
 

@@ -4,7 +4,7 @@
 > `expo-cloudkit/transport` API for SQLite-first applications. It is distinct from
 > the legacy sync/queue APIs below. See the [transport API and application handoff](docs/TRANSPORT.md)
 > and [Expo 57 device lab](example-transport/README.md). Distribution uses built,
-> version-specific GitHub Release tarballs; the proposed `0.21.0-fork.0` release is **unpublished**.
+> version-specific GitHub Release tarballs. See [v0.21.0-fork.0](https://github.com/ivanjx/expo-cloudkit/releases/tag/v0.21.0-fork.0) for release assets.
 > Signed-device CloudKit gates must pass before production use.
 
 [![CI](https://github.com/ivanjx/expo-cloudkit/actions/workflows/ci.yml/badge.svg)](https://github.com/ivanjx/expo-cloudkit/actions/workflows/ci.yml)
@@ -85,11 +85,11 @@ See the [full quick-start snippet](example/snippets/quick-start.ts) for zones, q
 ## Installation
 
 The fork is distributed through **built GitHub Release tarballs**, not the upstream
-npm package. **UNPUBLISHED:** `v0.21.0-fork.0` and the URLs below are proposed
-coordinates, not currently available dependencies. Do not migrate an application
-to them until the release assets exist and have been verified.
+npm package. Install the version-specific `v0.21.0-fork.0` tarball below.
+Before migrating an application, confirm both release assets are available and
+verify the downloaded tarball against its SHA-256 checksum.
 
-After publication:
+Install:
 
 ```sh
 npx expo install "https://github.com/ivanjx/expo-cloudkit/releases/download/v0.21.0-fork.0/expo-cloudkit-0.21.0-fork.0.tgz"
@@ -105,10 +105,9 @@ Expected `package.json` dependency:
 }
 ```
 
-The expected checksum asset is
+The checksum asset is
 [`expo-cloudkit-0.21.0-fork.0.tgz.sha256`](https://github.com/ivanjx/expo-cloudkit/releases/download/v0.21.0-fork.0/expo-cloudkit-0.21.0-fork.0.tgz.sha256)
-(**also unpublished**). Verify downloaded bytes against it; no checksum value is
-claimed here. Commit both the exact dependency URL and `package-lock.json`,
+— verify downloaded bytes against it. Commit both the exact dependency URL and `package-lock.json`,
 including npm's resolved integrity, and use `npm ci` for reproducible installation.
 The public repository's release assets require no credentials.
 
