@@ -1,6 +1,6 @@
 # Caller-owned CloudKit transport
 
-This fork (`0.21.0-fork.0`) supplies native transport capabilities, not an application synchronization engine. Import **`expo-cloudkit/transport`**, not the legacy `configure`/sync/queue APIs. The standalone entry is lazy; importing it does not acquire a native module, subscribe to account events, or start any service.
+This fork (`0.21.0-fork.1`) supplies native transport capabilities, not an application synchronization engine. Import **`expo-cloudkit/transport`**, not the legacy `configure`/sync/queue APIs. The standalone entry is lazy; importing it does not acquire a native module, subscribe to account events, or start any service.
 
 **SQLite remains application-authoritative.** The library never opens it. Domain mapping, validation, revisions, tombstones, conflict decisions, retries, durable inbox/outbox, acknowledgement transactions, file leases and lifecycle scheduling remain application-owned. No CKSyncEngine, polling, network monitor, push subscription, automatic zone recreation, conflict merge, offline journal or checkpoint persistence is activated by the transport.
 
@@ -165,21 +165,21 @@ For batches/pages, cancellation returns accumulated successes and explicit failu
 
 Distribution uses a public, immutable GitHub Release tarball from
 `ivanjx/expo-cloudkit`, not the upstream npm package. The version-specific
-coordinates for `v0.21.0-fork.0` are:
+coordinates for `v0.21.0-fork.1` are:
 
-- Tarball: https://github.com/ivanjx/expo-cloudkit/releases/download/v0.21.0-fork.0/expo-cloudkit-0.21.0-fork.0.tgz
-- SHA-256 file: https://github.com/ivanjx/expo-cloudkit/releases/download/v0.21.0-fork.0/expo-cloudkit-0.21.0-fork.0.tgz.sha256
+- Tarball: https://github.com/ivanjx/expo-cloudkit/releases/download/v0.21.0-fork.1/expo-cloudkit-0.21.0-fork.1.tgz
+- SHA-256 file: https://github.com/ivanjx/expo-cloudkit/releases/download/v0.21.0-fork.1/expo-cloudkit-0.21.0-fork.1.tgz.sha256
 
 Only after publication and checksum verification, install in the application:
 
 ```sh
-npx expo install "https://github.com/ivanjx/expo-cloudkit/releases/download/v0.21.0-fork.0/expo-cloudkit-0.21.0-fork.0.tgz"
+npx expo install "https://github.com/ivanjx/expo-cloudkit/releases/download/v0.21.0-fork.1/expo-cloudkit-0.21.0-fork.1.tgz"
 ```
 
 ```json
 {
   "dependencies": {
-    "expo-cloudkit": "https://github.com/ivanjx/expo-cloudkit/releases/download/v0.21.0-fork.0/expo-cloudkit-0.21.0-fork.0.tgz"
+    "expo-cloudkit": "https://github.com/ivanjx/expo-cloudkit/releases/download/v0.21.0-fork.1/expo-cloudkit-0.21.0-fork.1.tgz"
   }
 }
 ```
@@ -198,6 +198,8 @@ JavaScript, declarations and config plugin, native sources/podspec, and Expo
 metadata. It does not install the library's development dependencies or compile
 its TypeScript in the application. Swift still compiles in the app's normal iOS
 build: this is not a native binary/XCFramework or an offline dependency installer.
+Consumers declare `expo` and `expo-cloudkit`, not `expo-modules-core`; Expo
+provides the SDK-compatible core package used by the native module.
 Normal npm/CocoaPods installation still needs online dependencies unless cached.
 Native/config changes require regenerating the native project as appropriate
 and building a new development or release binary; a JS reload is insufficient.
@@ -235,8 +237,8 @@ existing release.
    create and push the exact tag:
 
    ```sh
-   git tag -a v0.21.0-fork.0 -m "Release v0.21.0-fork.0"
-   git push origin refs/tags/v0.21.0-fork.0
+   git tag -a v0.21.0-fork.1 -m "Release v0.21.0-fork.1"
+   git push origin refs/tags/v0.21.0-fork.1
    ```
 
    The tag must equal `v` plus `package.json`'s version exactly.
