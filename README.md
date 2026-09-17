@@ -4,7 +4,7 @@
 > `expo-cloudkit/transport` API for SQLite-first applications. It is distinct from
 > the legacy sync/queue APIs below. See the [transport API and application handoff](docs/TRANSPORT.md)
 > and [Expo 57 device lab](example-transport/README.md). Distribution uses built,
-> version-specific GitHub Release tarballs. See [v0.21.0-fork.0](https://github.com/ivanjx/expo-cloudkit/releases/tag/v0.21.0-fork.0) for release assets.
+> version-specific GitHub Release tarballs. See [v0.21.0-fork.1](https://github.com/ivanjx/expo-cloudkit/releases/tag/v0.21.0-fork.1) for release assets.
 > Signed-device CloudKit gates must pass before production use.
 
 [![CI](https://github.com/ivanjx/expo-cloudkit/actions/workflows/ci.yml/badge.svg)](https://github.com/ivanjx/expo-cloudkit/actions/workflows/ci.yml)
@@ -85,14 +85,14 @@ See the [full quick-start snippet](example/snippets/quick-start.ts) for zones, q
 ## Installation
 
 The fork is distributed through **built GitHub Release tarballs**, not the upstream
-npm package. Install the version-specific `v0.21.0-fork.0` tarball below.
+npm package. Install the version-specific `v0.21.0-fork.1` tarball below.
 Before migrating an application, confirm both release assets are available and
 verify the downloaded tarball against its SHA-256 checksum.
 
 Install:
 
 ```sh
-npx expo install "https://github.com/ivanjx/expo-cloudkit/releases/download/v0.21.0-fork.0/expo-cloudkit-0.21.0-fork.0.tgz"
+npx expo install "https://github.com/ivanjx/expo-cloudkit/releases/download/v0.21.0-fork.1/expo-cloudkit-0.21.0-fork.1.tgz"
 ```
 
 Expected `package.json` dependency:
@@ -100,13 +100,13 @@ Expected `package.json` dependency:
 ```json
 {
   "dependencies": {
-    "expo-cloudkit": "https://github.com/ivanjx/expo-cloudkit/releases/download/v0.21.0-fork.0/expo-cloudkit-0.21.0-fork.0.tgz"
+    "expo-cloudkit": "https://github.com/ivanjx/expo-cloudkit/releases/download/v0.21.0-fork.1/expo-cloudkit-0.21.0-fork.1.tgz"
   }
 }
 ```
 
 The checksum asset is
-[`expo-cloudkit-0.21.0-fork.0.tgz.sha256`](https://github.com/ivanjx/expo-cloudkit/releases/download/v0.21.0-fork.0/expo-cloudkit-0.21.0-fork.0.tgz.sha256)
+[`expo-cloudkit-0.21.0-fork.1.tgz.sha256`](https://github.com/ivanjx/expo-cloudkit/releases/download/v0.21.0-fork.1/expo-cloudkit-0.21.0-fork.1.tgz.sha256)
 — verify downloaded bytes against it. Commit both the exact dependency URL and `package-lock.json`,
 including npm's resolved integrity, and use `npm ci` for reproducible installation.
 The public repository's release assets require no credentials.
@@ -130,10 +130,13 @@ and the [clean-consumer verification procedure](example-transport/README.md#repr
 | Package | Version | Required? |
 |---------|---------|-----------|
 | `expo` | SDK 51+ | Yes |
-| `expo-modules-core` | 1.12+ | Yes |
 | `react` | 18+ | Yes |
 | `react-native` | 0.74+ | Yes |
 | `tsl-apple-cloudkit` | any | Only for web platform support |
+
+`expo-modules-core` is a library development dependency, not a consumer
+dependency or peer dependency. Expo applications receive the SDK-compatible
+version through `expo` and should not install it directly.
 
 Install the web peer dependency if you need web support:
 

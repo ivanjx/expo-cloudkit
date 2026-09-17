@@ -6,21 +6,21 @@ This is a dedicated native Expo application, not the legacy example, an applicat
 
 Read against the exact [Expo SDK 57 reference](https://docs.expo.dev/versions/v57.0.0/) and [SDK 57 FileSystem API](https://docs.expo.dev/versions/v57.0.0/sdk/filesystem/). Expo documents Node 22.13+, iOS 16.4+, and Xcode 26.4+ for this SDK. The library itself declares iOS 16.0; the Expo application has the stricter SDK minimum.
 
-The committed example pins Expo **57.0.12**, React Native **0.86.2**, and React **19.2.3**. Native dependencies were installed using `npx expo install`. The initial `~57.0.12` install resolved Expo 57.0.21 and recommended RN 0.86.3; Expo was subsequently pinned to the requested 57.0.12 baseline, whose bundled dependency table recommends RN 0.86.2. The lock currently resolves compatible patch updates: expo-modules-core 57.0.17, expo-constants 57.0.17, expo-file-system 57.0.6, expo-dev-client 57.0.18, and @expo/config-plugins 57.0.9. `npm ci` preserves the exact resolution; reinstalling without the lock may select newer patches.
+The committed example pins Expo **57.0.12**, React Native **0.86.2**, and React **19.2.3**. It does not declare `expo-modules-core`; Expo supplies the SDK-compatible version transitively. Native dependencies were installed using `npx expo install`. The initial `~57.0.12` install resolved Expo 57.0.21 and recommended RN 0.86.3; Expo was subsequently pinned to the requested 57.0.12 baseline, whose bundled dependency table recommends RN 0.86.2. The lock currently resolves compatible patch updates: expo-modules-core 57.0.17, expo-constants 57.0.17, expo-file-system 57.0.6, expo-dev-client 57.0.18, and @expo/config-plugins 57.0.9. `npm ci` preserves the exact resolution; reinstalling without the lock may select newer patches.
 
 A signed physical iPhone, an iCloud account, an Apple Developer team, and a provisioned **disposable verification app/container** are required for real CloudKit gates. Expo Go cannot load this module. Ad-hoc-signed simulator CI checks do not prove real account, conflict, asset, or CloudKit server semantics. Do not use a production/user dataset.
 
 ## Reproducible source and packed installation
 
-The version-specific release `v0.21.0-fork.0` uses the tarball
-https://github.com/ivanjx/expo-cloudkit/releases/download/v0.21.0-fork.0/expo-cloudkit-0.21.0-fork.0.tgz
+The version-specific release `v0.21.0-fork.1` uses the tarball
+https://github.com/ivanjx/expo-cloudkit/releases/download/v0.21.0-fork.1/expo-cloudkit-0.21.0-fork.1.tgz
 and its checksum is
-https://github.com/ivanjx/expo-cloudkit/releases/download/v0.21.0-fork.0/expo-cloudkit-0.21.0-fork.0.tgz.sha256.
+https://github.com/ivanjx/expo-cloudkit/releases/download/v0.21.0-fork.1/expo-cloudkit-0.21.0-fork.1.tgz.sha256.
 Confirm both public assets are available and verify the checksum before
 installing. Consumers use:
 
 ```sh
-npx expo install "https://github.com/ivanjx/expo-cloudkit/releases/download/v0.21.0-fork.0/expo-cloudkit-0.21.0-fork.0.tgz"
+npx expo install "https://github.com/ivanjx/expo-cloudkit/releases/download/v0.21.0-fork.1/expo-cloudkit-0.21.0-fork.1.tgz"
 ```
 
 Commit the resulting exact URL and npm lockfile integrity. No source submodule,
@@ -35,7 +35,7 @@ section, then from the repository root on macOS/Linux:
 ```sh
 npm ci
 node .github/scripts/pack-release.mjs "$PWD/release-package"
-node .github/scripts/verify-package.mjs "$PWD/release-package/expo-cloudkit-0.21.0-fork.0.tgz" /tmp/cloudkit-packed-consumer
+node .github/scripts/verify-package.mjs "$PWD/release-package/expo-cloudkit-0.21.0-fork.1.tgz" /tmp/cloudkit-packed-consumer
 ```
 
 Use a new or empty packaging output directory: the helper refuses to replace files.

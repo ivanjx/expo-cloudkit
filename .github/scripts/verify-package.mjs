@@ -56,6 +56,9 @@ run('tar', ['-xzf', localAsset, '-C', consumer]);
 const extracted = resolve(consumer, 'package');
 const packed = json(resolve(extracted, 'package.json'));
 assert.equal(packed.name, 'expo-cloudkit');
+assert.ok(packed.devDependencies?.['expo-modules-core'], 'expo-modules-core must remain a library dev dependency');
+assert.ok(!packed.dependencies?.['expo-modules-core'], 'expo-modules-core must not be a consumer dependency');
+assert.ok(!packed.peerDependencies?.['expo-modules-core'], 'expo-modules-core must not be a consumer peer dependency');
 for (const hook of ['prepare', 'preinstall', 'install', 'postinstall']) {
   assert.ok(!packed.scripts?.[hook], `Consumer-side ${hook} hook is forbidden`);
 }
@@ -65,6 +68,7 @@ for (const peer of ['zod', 'tsl-apple-cloudkit']) {
 }
 const app = json(resolve(consumer, 'package.json'));
 const lock = json(resolve(consumer, 'package-lock.json'));
+assert.ok(!app.dependencies?.['expo-modules-core'], 'Consumer must receive expo-modules-core through expo');
 const spec = `file:./${basename(tarball)}`;
 app.dependencies['expo-cloudkit'] = spec;
 // The packed layout does not need source-link React singleton inclusion.
@@ -104,7 +108,7 @@ assert.ok(!require.cache[require.resolve('expo-cloudkit')], 'Transport imported 
 
 // Audit every compiled JS/declaration reference in the actual installed archive, not just files[].
 const ts = require('typescript');
-const declared = { ...packed.dependencies, ...packed.peerDependencies };
+const declared = { 'expo-modules-core': packed.devDependencies?.['expo-modules-core'], ...packed.dependencies, ...packed.peerDependencies };
 const tsOptions = { moduleResolution: ts.ModuleResolutionKind.Node10, allowJs: true };
 for (const file of files(installed).filter(file => /\.(js|ts)$/.test(file))) {
   const source = ts.createSourceFile(file, readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true);

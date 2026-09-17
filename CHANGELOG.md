@@ -9,6 +9,12 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.21.0-fork.1] — 2026-09-17
+
+### Fixed
+
+- Removed the incorrect `expo-modules-core` consumer peer dependency. Expo applications now receive the SDK-compatible version through `expo`; the package retains `expo-modules-core` only for development.
+
 ## [0.21.0-fork.0] — 2026-09-13
 
 ### Added
